@@ -1,0 +1,17 @@
+{
+  "appName": "{{.AppName}}",
+  "siteUrl": "{{.SiteURL}}",
+  "ghUserName": "{{if .GitHubUser}}{{.GitHubUser}}{{else}}your-username{{end}}",
+  "repositoryName": "{{if .RepositoryName}}{{.RepositoryName}}{{else}}your-repo{{end}}",
+  "packageManager": "{{.PackageManager}}",
+  "branch": "main",
+  "buildDir": "dist/assets",
+  "devHost": "localhost",
+  "devPort": 5173,
+  "proxyHost": "localhost",
+  "proxyPort": 3000,
+  "openBrowser": true,
+  "globalEntry": "{{.GlobalEntry}}",
+  "docsEntry": "{{.DocsEntry}}",
+  "docsPageSlug": "{{.DocsPageSlug}}"
+}

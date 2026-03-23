@@ -1,0 +1,10 @@
+*.go
+internal/
+cmd/
+.git/
+.github/
+Makefile
+go.mod
+go.sum
+pkg/
+bin/
