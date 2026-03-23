@@ -3,14 +3,14 @@ module wfkit
 go 1.26.1
 
 require (
-	github.com/PuerkitoBio/goquery v1.10.2
+	github.com/PuerkitoBio/goquery v1.12.0
 	github.com/browserutils/kooky v0.2.9
 	github.com/charmbracelet/huh v1.0.0
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/fatih/color v1.18.0
 	github.com/urfave/cli/v2 v2.27.5
 	github.com/yuin/goldmark v1.7.8
-	golang.org/x/mod v0.32.0
+	golang.org/x/mod v0.33.0
 )
 
 require (
@@ -48,11 +48,11 @@ require (
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	github.com/xrash/smetrics v0.0.0-20240521201337-686a1a2994c1 // indirect
 	github.com/zalando/go-keyring v0.2.7 // indirect
-	golang.org/x/crypto v0.48.0 // indirect
-	golang.org/x/net v0.50.0 // indirect
-	golang.org/x/sync v0.19.0 // indirect
-	golang.org/x/sys v0.41.0 // indirect
-	golang.org/x/text v0.34.0 // indirect
+	golang.org/x/crypto v0.49.0 // indirect
+	golang.org/x/net v0.52.0 // indirect
+	golang.org/x/sync v0.20.0 // indirect
+	golang.org/x/sys v0.42.0 // indirect
+	golang.org/x/text v0.35.0 // indirect
 	gopkg.in/ini.v1 v1.67.1 // indirect
 )
 
