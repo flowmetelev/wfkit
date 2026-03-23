@@ -10,7 +10,7 @@ require (
 	github.com/fatih/color v1.18.0
 	github.com/urfave/cli/v2 v2.27.5
 	github.com/yuin/goldmark v1.7.8
-	golang.org/x/mod v0.32.0
+	golang.org/x/mod v0.34.0
 )
 
 require (
