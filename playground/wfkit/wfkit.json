@@ -1,0 +1,17 @@
+{
+  "appName": "wfkit",
+  "siteUrl": "https://wfkit.webflow.io",
+  "ghUserName": "YNDmitry",
+  "repositoryName": "wfkit",
+  "packageManager": "bun",
+  "branch": "main",
+  "buildDir": "dist/assets",
+  "devHost": "localhost",
+  "devPort": 5173,
+  "proxyHost": "localhost",
+  "proxyPort": 3000,
+  "openBrowser": true,
+  "globalEntry": "src/global/index.ts",
+  "docsEntry": "docs/index.md",
+  "docsPageSlug": "docs"
+}

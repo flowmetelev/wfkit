@@ -1,0 +1,93 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Fetch tags
+        run: git fetch --tags --force
+
+      - name: Resolve release version
+        id: version
+        run: |
+          VERSION=$(node -p "require('./npm/package.json').version")
+          TAG="v$VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+            echo "Tag $TAG already exists, skipping release."
+          else
+            echo "should_release=true" >> "$GITHUB_OUTPUT"
+            echo "Preparing release for $TAG"
+          fi
+
+      - name: Set up Go
+        if: steps.version.outputs.should_release == 'true'
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.0"
+
+      - name: Install Task
+        if: steps.version.outputs.should_release == 'true'
+        uses: arduino/setup-task@v2
+
+      - name: Validate version metadata
+        if: steps.version.outputs.should_release == 'true'
+        run: task version:check
+
+      - name: Run tests
+        if: steps.version.outputs.should_release == 'true'
+        run: task test
+
+      - name: Build release binaries
+        if: steps.version.outputs.should_release == 'true'
+        run: task release-all
+
+      - name: Create release tag
+        if: steps.version.outputs.should_release == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag "${{ steps.version.outputs.tag }}"
+          git push origin "${{ steps.version.outputs.tag }}"
+
+      - name: Publish npm package
+        if: steps.version.outputs.should_release == 'true'
+        working-directory: npm
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create GitHub release
+        if: steps.version.outputs.should_release == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: ${{ steps.version.outputs.tag }}
+          files: |
+            releases/darwin/*
+            releases/linux/*
+            releases/windows/*

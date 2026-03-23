@@ -1,0 +1,38 @@
+{
+    "name": "wfkit",
+    "version": "1.0.0",
+    "description": "A powerful CLI utility for securely publishing Webflow projects with live development support.",
+    "main": "install.js",
+    "bin": {
+        "wfkit": "./bin/wfkit"
+    },
+    "scripts": {
+        "postinstall": "node install.js"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/yndmitry/wfkit.git"
+    },
+    "keywords": [
+        "webflow",
+        "cli",
+        "publish",
+        "development",
+        "deploy",
+        "sync"
+    ],
+    "author": "Dmitry Metelev <mailmetelev@gmail.com>",
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/yndmitry/wfkit/issues"
+    },
+    "homepage": "https://github.com/yndmitry/wfkit#readme",
+    "files": [
+        "install.js",
+        "package.json",
+        "README.md"
+    ],
+    "engines": {
+        "node": ">=14.0.0"
+    }
+}
