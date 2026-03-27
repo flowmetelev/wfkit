@@ -31,24 +31,62 @@ jobs:
       - name: Resolve release version
         id: version
         run: |
+          PACKAGE_NAME=$(node -p "require('./npm/package.json').name")
           VERSION=$(node -p "require('./npm/package.json').version")
           TAG="v$VERSION"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          TAG_EXISTS=false
+          NPM_EXISTS=false
 
           if git rev-parse "$TAG" >/dev/null 2>&1; then
-            echo "should_release=false" >> "$GITHUB_OUTPUT"
-            echo "Tag $TAG already exists, skipping release."
-          else
-            echo "should_release=true" >> "$GITHUB_OUTPUT"
-            echo "Preparing release for $TAG"
+            TAG_EXISTS=true
           fi
+
+          if npm view "${PACKAGE_NAME}@${VERSION}" version --registry https://registry.npmjs.org >/dev/null 2>&1; then
+            NPM_EXISTS=true
+          fi
+
+          if [ "$NPM_EXISTS" = true ] && [ "$TAG_EXISTS" = false ]; then
+            echo "npm package ${PACKAGE_NAME}@${VERSION} already exists but git tag ${TAG} does not."
+            echo "Refusing to continue from an inconsistent release state."
+            exit 1
+          fi
+
+          SHOULD_RELEASE=false
+          SHOULD_CREATE_TAG=false
+          SHOULD_PUBLISH_NPM=false
+
+          if [ "$TAG_EXISTS" = false ] || [ "$NPM_EXISTS" = false ]; then
+            SHOULD_RELEASE=true
+          fi
+
+          if [ "$TAG_EXISTS" = false ]; then
+            SHOULD_CREATE_TAG=true
+          fi
+
+          if [ "$NPM_EXISTS" = false ]; then
+            SHOULD_PUBLISH_NPM=true
+          fi
+
+          echo "package_name=$PACKAGE_NAME" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "tag_exists=$TAG_EXISTS" >> "$GITHUB_OUTPUT"
+          echo "npm_exists=$NPM_EXISTS" >> "$GITHUB_OUTPUT"
+          echo "should_release=$SHOULD_RELEASE" >> "$GITHUB_OUTPUT"
+          echo "should_create_tag=$SHOULD_CREATE_TAG" >> "$GITHUB_OUTPUT"
+          echo "should_publish_npm=$SHOULD_PUBLISH_NPM" >> "$GITHUB_OUTPUT"
+
+          echo "tag exists: $TAG_EXISTS"
+          echo "npm exists: $NPM_EXISTS"
+          echo "should release: $SHOULD_RELEASE"
+          echo "should create tag: $SHOULD_CREATE_TAG"
+          echo "should publish npm: $SHOULD_PUBLISH_NPM"
 
       - name: Set up Go
         if: steps.version.outputs.should_release == 'true'
         uses: actions/setup-go@v5
         with:
-          go-version: "1.24.0"
+          go-version: "1.26.1"
 
       - name: Install Task
         if: steps.version.outputs.should_release == 'true'
@@ -57,6 +95,10 @@ jobs:
       - name: Validate version metadata
         if: steps.version.outputs.should_release == 'true'
         run: task version:check
+
+      - name: Validate npm installer target mapping
+        if: steps.version.outputs.should_release == 'true'
+        run: node --test npm/install.test.js
 
       - name: Run tests
         if: steps.version.outputs.should_release == 'true'
@@ -67,19 +109,12 @@ jobs:
         run: task release-all
 
       - name: Create release tag
-        if: steps.version.outputs.should_release == 'true'
+        if: steps.version.outputs.should_create_tag == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag "${{ steps.version.outputs.tag }}"
           git push origin "${{ steps.version.outputs.tag }}"
-
-      - name: Publish npm package
-        if: steps.version.outputs.should_release == 'true'
-        working-directory: npm
-        run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Create GitHub release
         if: steps.version.outputs.should_release == 'true'
@@ -87,7 +122,15 @@ jobs:
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           name: ${{ steps.version.outputs.tag }}
+          overwrite_files: true
           files: |
             releases/darwin/*
             releases/linux/*
             releases/windows/*
+
+      - name: Publish npm package
+        if: steps.version.outputs.should_publish_npm == 'true'
+        working-directory: npm
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

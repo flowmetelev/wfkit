@@ -149,8 +149,7 @@ tasks:
       vars: [OS, ARCH]
     vars:
       EXT: '{{if eq .OS "windows"}}.exe{{else}}{{end}}'
-      SUFFIX: '{{if and (eq .OS "darwin") (eq .ARCH "amd64")}}-amd64{{else if and (eq .OS "darwin") (eq .ARCH "arm64")}}-arm64{{else}}{{end}}'
-      OUT: "{{.RELEASE_DIR}}/{{.OS}}/{{.BINARY_NAME}}{{.SUFFIX}}{{.EXT}}"
+      OUT: "{{.RELEASE_DIR}}/{{.OS}}/{{.BINARY_NAME}}-{{.OS}}-{{.ARCH}}{{.EXT}}"
     sources:
       - "**/*.go"
       - "go.mod"
@@ -170,16 +169,20 @@ tasks:
         vars: { OS: darwin, ARCH: arm64 }
 
   release-linux:
-    desc: "Build release for Linux (amd64)"
+    desc: "Build release for Linux (amd64 and arm64)"
     cmds:
       - task: release
         vars: { OS: linux, ARCH: amd64 }
+      - task: release
+        vars: { OS: linux, ARCH: arm64 }
 
   release-windows:
-    desc: "Build release for Windows (amd64)"
+    desc: "Build release for Windows (amd64 and arm64)"
     cmds:
       - task: release
         vars: { OS: windows, ARCH: amd64 }
+      - task: release
+        vars: { OS: windows, ARCH: arm64 }
 
   release-all:
     desc: "Build releases for all supported platforms"

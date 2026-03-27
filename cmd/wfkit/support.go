@@ -9,7 +9,7 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-const issueFormBaseURL = "https://github.com/yndmitry/wfkit/issues/new"
+const issueFormBaseURL = "https://github.com/flowmetelev/wfkit/issues/new"
 
 func openBugReport(c *cli.Context) error {
 	target := bugReportURL(nil, c.App.Version, os.Args[1:])

@@ -17,6 +17,12 @@ Run:
 npm install -g wfkit
 ```
 
+The npm package currently ships native binaries for:
+
+- macOS `x64` and `arm64`
+- Linux `x64` and `arm64`
+- Windows `x64` and `arm64`
+
 Then:
 
 ```bash

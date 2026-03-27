@@ -4,6 +4,14 @@
 
 The npm package installs the native Go binary for your platform during setup.
 
+Supported npm targets:
+
+- macOS `x64` and `arm64`
+- Linux `x64` and `arm64`
+- Windows `x64` and `arm64`
+
+If your platform is outside that matrix, install from source instead of npm.
+
 ## Install
 
 Run:
