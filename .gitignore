@@ -1,6 +1,4 @@
-playground/*
-playground/**/node_modules/
-playground/**/dist/
+playground
 .DS_Store
 Cargo.lock
 *.lock
