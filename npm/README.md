@@ -20,6 +20,8 @@ Run:
 npm install -g @flowmetelev/wfkit
 ```
 
+If your package manager blocks `postinstall` scripts, the `wfkit` launcher will download the native binary automatically on first run.
+
 ## Quick start
 
 Create a project:

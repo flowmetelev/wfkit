@@ -23,6 +23,8 @@ The npm package currently ships native binaries for:
 - Linux `x64` and `arm64`
 - Windows `x64` and `arm64`
 
+If your package manager blocks `postinstall` scripts, the `wfkit` launcher will download the native binary automatically on first run.
+
 Then:
 
 ```bash
