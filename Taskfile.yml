@@ -112,6 +112,13 @@ tasks:
       - task: release:prepare
         vars: { TYPE: major }
 
+  hooks:install:
+    desc: "Install local git hooks used by this repository"
+    cmds:
+      - mkdir -p .git/hooks
+      - 'printf ''#!/bin/sh\n\nnode scripts/validate-release-commit.mjs "$1"\n'' > .git/hooks/commit-msg'
+      - chmod 755 .git/hooks/commit-msg
+
   play:init:
     desc: "Test 'wfkit init' inside the playground directory"
     cmds:
