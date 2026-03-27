@@ -80,6 +80,9 @@ tasks:
 
   release:prepare:
     desc: "Bump the release version and create a release commit. Usage: task release:prepare TYPE=patch"
+    vars:
+      RELEASE_VERSION:
+        sh: node -p "require('./npm/package.json').version"
     preconditions:
       - sh: test -n "{{.TYPE}}"
         msg: "TYPE is required. Use patch, minor, major, or an exact semver version."
@@ -89,8 +92,7 @@ tasks:
       - task: version:bump
         vars: { TYPE: "{{.TYPE}}" }
       - git add npm/package.json
-      - >-
-        git commit -m "chore: release v$(node -p \"require('./npm/package.json').version\")"
+      - 'git commit -m "chore: release v{{.RELEASE_VERSION}}"'
 
   release:patch:
     desc: "Prepare a patch release commit"
