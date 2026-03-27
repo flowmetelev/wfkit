@@ -22,9 +22,9 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: "22"
+          node-version: "24"
           registry-url: "https://registry.npmjs.org"
 
       - name: Fetch tags
@@ -101,6 +101,13 @@ jobs:
       - name: Validate npm installer target mapping
         if: steps.version.outputs.should_release == 'true'
         run: node --test npm/install.test.js
+
+      - name: Upgrade npm for trusted publishing
+        if: steps.version.outputs.should_release == 'true'
+        run: |
+          npm install -g npm@latest
+          node --version
+          npm --version
 
       - name: Run tests
         if: steps.version.outputs.should_release == 'true'
