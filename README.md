@@ -14,7 +14,7 @@ Use it to:
 Run:
 
 ```bash
-npm install -g wfkit
+npm install -g @flowmetelev/wfkit
 ```
 
 The npm package currently ships native binaries for:

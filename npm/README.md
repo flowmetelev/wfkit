@@ -17,7 +17,7 @@ If your platform is outside that matrix, install from source instead of npm.
 Run:
 
 ```bash
-npm install -g wfkit
+npm install -g @flowmetelev/wfkit
 ```
 
 ## Quick start
