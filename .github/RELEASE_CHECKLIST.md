@@ -24,12 +24,12 @@ cd playground/wfkit
 bun run build
 ```
 
-For the first npm release, use a publish-capable `NPM_TOKEN` if the package does not exist yet.
-After `@flowmetelev/wfkit` exists on npm, configure trusted publishing with:
+Make sure npm trusted publishing is configured for `@flowmetelev/wfkit` with:
 
 - owner: `flowmetelev`
 - repository: `wfkit`
 - workflow file: `publish.yml`
+- environment name: `main`
 
 ## Check versioning
 
