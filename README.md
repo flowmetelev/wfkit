@@ -262,8 +262,11 @@ After that:
 2. open and merge the PR into `main`
 3. GitHub Actions creates the release automatically if that version tag does not already exist
 
-The npm publish step uses npm trusted publishing via GitHub Actions OIDC.
-Before the first release, configure a trusted publisher for `@flowmetelev/wfkit` in npm and point it at:
+The npm publish step is set up for npm trusted publishing via GitHub Actions OIDC.
+For the first release, you can keep a publish-capable `NPM_TOKEN` as a bootstrap path.
+After `@flowmetelev/wfkit` exists on npm, configure a trusted publisher and then remove the token.
+
+Trusted publisher settings for `@flowmetelev/wfkit`:
 
 - owner: `flowmetelev`
 - repository: `wfkit`

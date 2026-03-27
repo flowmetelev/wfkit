@@ -24,7 +24,8 @@ cd playground/wfkit
 bun run build
 ```
 
-Before cutting the first npm release, make sure npm trusted publishing is configured for `@flowmetelev/wfkit` with:
+For the first npm release, use a publish-capable `NPM_TOKEN` if the package does not exist yet.
+After `@flowmetelev/wfkit` exists on npm, configure trusted publishing with:
 
 - owner: `flowmetelev`
 - repository: `wfkit`
