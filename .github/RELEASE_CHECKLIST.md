@@ -19,8 +19,8 @@ go build ./cmd/wfkit
 If the scaffold or example project changed, also verify:
 
 ```bash
+go run ./cmd/wfkit init --name playground/wfkit --init-git
 cd playground/wfkit
-bun install
 bun run build
 ```
 

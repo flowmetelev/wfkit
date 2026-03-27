@@ -22,8 +22,8 @@ If you're working on generated docs or templates, run formatting for the files y
 If you're working on the example project or scaffold output, it's also useful to verify the generated workflow manually:
 
 ```bash
+go run ./cmd/wfkit init --name playground/wfkit --init-git
 cd playground/wfkit
-bun install
 bun run build
 ```
 
