@@ -262,6 +262,13 @@ After that:
 2. open and merge the PR into `main`
 3. GitHub Actions creates the release automatically if that version tag does not already exist
 
+The npm publish step uses npm trusted publishing via GitHub Actions OIDC.
+Before the first release, configure a trusted publisher for `@flowmetelev/wfkit` in npm and point it at:
+
+- owner: `flowmetelev`
+- repository: `wfkit`
+- workflow file: `publish.yml`
+
 If the version in `npm/package.json` hasn't changed, the release workflow skips itself.
 
 Typical flow:

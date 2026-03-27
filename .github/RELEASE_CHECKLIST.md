@@ -24,6 +24,12 @@ cd playground/wfkit
 bun run build
 ```
 
+Before cutting the first npm release, make sure npm trusted publishing is configured for `@flowmetelev/wfkit` with:
+
+- owner: `flowmetelev`
+- repository: `wfkit`
+- workflow file: `publish.yml`
+
 ## Check versioning
 
 The release version comes from `npm/package.json`.
