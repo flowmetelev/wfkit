@@ -19,7 +19,7 @@ func initProject(opts config.Options, installDependencies func(string) error, in
 	// Установка значений по умолчанию
 	opts.SetDefaultValues()
 
-	restoreDir, err := prepareProjectDir(opts.Name)
+	restoreDir, err := prepareProjectDir(opts.ProjectDir, opts.Force)
 	if err != nil {
 		return err
 	}
@@ -41,6 +41,11 @@ func initProject(opts config.Options, installDependencies func(string) error, in
 
 	// Создание wfkit.json
 	if err := steps.CreateProjectConfig(opts); err != nil {
+		return err
+	}
+
+	// Создание README проекта
+	if err := steps.CreateProjectReadme(opts); err != nil {
 		return err
 	}
 
@@ -70,8 +75,10 @@ func initProject(opts config.Options, installDependencies func(string) error, in
 	}
 
 	// Установка зависимостей
-	if err := installDependencies(opts.PackageManager); err != nil {
-		return err
+	if !opts.SkipInstall {
+		if err := installDependencies(opts.PackageManager); err != nil {
+			return err
+		}
 	}
 
 	if opts.InitGit {
@@ -84,7 +91,7 @@ func initProject(opts config.Options, installDependencies func(string) error, in
 	return nil
 }
 
-func prepareProjectDir(name string) (func() error, error) {
+func prepareProjectDir(name string, force bool) (func() error, error) {
 	projectDir := filepath.Clean(name)
 	if projectDir == "" || projectDir == "." {
 		return nil, fmt.Errorf("project name must not be empty")
@@ -93,6 +100,26 @@ func prepareProjectDir(name string) (func() error, error) {
 	originalDir, err := os.Getwd()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get current directory: %w", err)
+	}
+
+	info, err := os.Stat(projectDir)
+	switch {
+	case err == nil && !info.IsDir():
+		return nil, fmt.Errorf("project path %s already exists and is not a directory", projectDir)
+	case err == nil:
+		entries, readErr := os.ReadDir(projectDir)
+		if readErr != nil {
+			return nil, fmt.Errorf("failed to inspect project directory %s: %w", projectDir, readErr)
+		}
+		if len(entries) > 0 && !force {
+			return nil, fmt.Errorf("project directory %s is not empty; rerun with --force to overwrite scaffold files", projectDir)
+		}
+	case os.IsNotExist(err):
+		if err := os.MkdirAll(projectDir, 0755); err != nil {
+			return nil, fmt.Errorf("failed to create project directory %s: %w", projectDir, err)
+		}
+	default:
+		return nil, fmt.Errorf("failed to inspect project directory %s: %w", projectDir, err)
 	}
 
 	if err := os.MkdirAll(projectDir, 0755); err != nil {

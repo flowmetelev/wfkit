@@ -2,14 +2,19 @@
 
 This page is published to the Webflow page with slug `{{.DocsPageSlug}}`.
 
-## How it works
+## Publish the docs page
 
-- Edit markdown in `docs/index.md`
-- Run `wfkit docs`
-- Open the `{{.DocsPageSlug}}` page in Webflow
+Run:
 
-## Tips
+```bash
+wfkit docs
+```
 
-- Add headings to build a docs table of contents automatically
+This renders `docs/index.md` and updates the `{{.DocsPageSlug}}` page in Webflow.
+
+## Keep the page useful
+
+- Add headings to generate a table of contents automatically
 - Use fenced code blocks for commands and examples
-- Add links with standard markdown syntax
+- Add links with standard Markdown syntax
+- Keep one topic per section so the page stays easy to scan

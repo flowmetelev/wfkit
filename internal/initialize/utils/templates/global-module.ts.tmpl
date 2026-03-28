@@ -1,12 +1,7 @@
-import { $, onReady } from '@/utils/dom'
+import { mountSiteStatusFeature } from '@/features/site-status'
 
 export function mountSiteGlobal() {
-  onReady(() => {
-    const root = $('[data-wf-site-root]')
-    if (root) {
-      root.setAttribute('data-wf-enhanced', 'true')
-    }
+  mountSiteStatusFeature()
 
-    console.log('[WF] global module mounted')
-  })
+  // Mount shared site-wide features here.
 }
