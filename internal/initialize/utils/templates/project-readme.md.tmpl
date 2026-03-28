@@ -32,7 +32,24 @@ Open `http://localhost:3000` to work against your proxied `.webflow.io` site loc
 - `{{.RunScript}} lint` runs ESLint for scaffolded source files
 - `{{.RunScript}} typecheck` runs TypeScript checks
 
-## Project layout
+## Understand the architecture
+
+This scaffold separates *where code runs* from *what code does*.
+
+- `src/global/index.ts` is the one explicit global entry. Use it for behavior that should be available on every page.
+- `src/global/modules/*` contains global modules that you choose to import from the global entry.
+- `src/pages/*/index.ts` is for page-specific bootstrapping. A page file should decide what to mount on that page, not hold all the behavior itself.
+- `src/features/*` is for reusable Webflow behavior. Put sliders, tabs, accordions, filters, toggles, and section logic here.
+- `src/utils/dom.ts` contains low-level DOM helpers.
+- `src/utils/webflow.ts` contains the Webflow-aware mounting helpers like `definePage`, `mountFeature`, and `onWebflowReady`.
+
+The rule of thumb is:
+
+- page files decide *where to mount*
+- feature files define *what the behavior is*
+- global files mount behavior shared across the whole site
+
+## Use the project layout the intended way
 
 ```text
 src/
@@ -56,8 +73,67 @@ dist/assets/
   wfkit-manifest.json
 ```
 
-`src/global/index.ts` is your global entry.
-`src/features/*` is where reusable Webflow behaviors should live.
-`src/pages/*/index.ts` is where page-specific code lives.
-`src/utils/webflow.ts` mounts features through the Webflow runtime and falls back safely outside Webflow.
-`docs/index.md` is the default docs hub entry.
+Use each area like this:
+
+- `src/global/index.ts`: export your public helpers and mount shared site-wide modules
+- `src/global/modules/*`: split shared global responsibilities into small modules
+- `src/pages/home/index.ts`: keep page setup thin and focused on that page only
+- `src/features/*`: build reusable behavior around stable `data-wf-*` selectors
+- `build/webflow-vite-plugin.js`: controls how page and global entries become Webflow-ready bundles
+- `docs/index.md`: the default docs hub entry
+
+## Follow this workflow when adding code
+
+1. Add the required `data-wf-*` attributes in Webflow so your code has stable mount points.
+2. Put reusable behavior in `src/features/*`.
+3. Mount that behavior from a page entry or a global module.
+4. Use `{{.RunScript}} dev` to verify the behavior through the local proxy, not by editing Webflow production code directly.
+5. When the behavior is ready, use `{{.RunScript}} publish`.
+
+## Keep page files thin and DRY
+
+Avoid writing all logic directly in `src/pages/*/index.ts`.
+Instead, keep page files as orchestration and move real behavior into features.
+
+Example:
+
+```ts
+// src/features/home-cta.ts
+import { mountFeature } from '@/utils/webflow'
+
+export function mountHomeCTA(root: ParentNode = document) {
+  mountFeature('home-cta', '[data-wf-home-cta]', element => {
+    element.setAttribute('data-cta-ready', 'true')
+  }, root)
+}
+```
+
+```ts
+// src/pages/home/index.ts
+import { definePage } from '@/utils/webflow'
+import { mountHomeCTA } from '@/features/home-cta'
+
+definePage('home', pageRoot => {
+  mountHomeCTA(pageRoot)
+})
+```
+
+This keeps selectors, DOM behavior, and reuse in one place.
+
+## Decide where new code belongs
+
+Use this quick guide:
+
+- Put it in `src/features/*` if the same behavior could be reused on more than one page or section.
+- Put it in `src/pages/*/index.ts` if the code is only about deciding what mounts on that page.
+- Put it in `src/global/modules/*` if it should run site-wide.
+- Put it in `src/utils/*` only if it is generic plumbing, not business behavior.
+
+## Work with Webflow instead of against it
+
+This scaffold is designed around Webflow's runtime:
+
+- use stable `data-wf-*` attributes rather than brittle visual selectors
+- prefer mounting behavior through `definePage` and `mountFeature`
+- keep production updates behind `wfkit publish`, not manual script edits in Webflow
+- treat Webflow as the source of markup and structure, and this codebase as the source of behavior
