@@ -33,7 +33,7 @@ function resolveReleaseAsset(platform = process.platform, arch = process.arch) {
 }
 
 function resolveVersion() {
-  return process.env.npm_package_version || packageJSON.version;
+  return packageJSON.version;
 }
 
 function buildReleaseURL(binaryName, version = resolveVersion()) {
