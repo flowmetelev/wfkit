@@ -116,6 +116,37 @@ func TestDetectGitHubRepositoryStatusTreatsSymlinkedProjectRootAsRoot(t *testing
 	}
 }
 
+func TestInitializeLocalRepository(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git is not installed")
+	}
+
+	originalDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	defer func() {
+		_ = os.Chdir(originalDir)
+	}()
+
+	tmpDir := t.TempDir()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("chdir temp dir: %v", err)
+	}
+
+	if err := InitializeLocalRepository("main"); err != nil {
+		t.Fatalf("InitializeLocalRepository: %v", err)
+	}
+
+	status, err := DetectGitHubRepositoryStatus()
+	if err != nil {
+		t.Fatalf("DetectGitHubRepositoryStatus: %v", err)
+	}
+	if !status.HasGitRepository || !status.IsProjectRoot {
+		t.Fatalf("expected initialized git repository at project root, got %+v", status)
+	}
+}
+
 func runGit(t *testing.T, args ...string) {
 	t.Helper()
 	cmd := exec.Command("git", args...)
