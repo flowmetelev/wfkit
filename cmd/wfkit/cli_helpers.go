@@ -43,6 +43,19 @@ func resolveStringFlag(c *cli.Context, name, fallback string) string {
 	return c.String(name)
 }
 
+func resolveAssetBranchFlag(c *cli.Context, fallback string) string {
+	if c.IsSet("asset-branch") {
+		return c.String("asset-branch")
+	}
+	if c.IsSet("branch") {
+		return c.String("branch")
+	}
+	if fallback != "" {
+		return fallback
+	}
+	return c.String("asset-branch")
+}
+
 func resolveIntFlag(c *cli.Context, name string, fallback int) int {
 	if c.IsSet(name) {
 		return c.Int(name)
@@ -64,13 +77,13 @@ func printGitPushSummary(result build.GitPushResult) {
 	switch {
 	case !result.Committed:
 		utils.PrintSection("Git Summary")
-		utils.PrintStatus("WARN", "No new commit was needed", "")
+		utils.PrintStatus("WARN", "No new artifact commit was needed", "")
 	case result.Pushed:
 		utils.PrintSection("Git Summary")
-		utils.PrintStatus("PUSHED", fmt.Sprintf("Committed and pushed to %s", result.Branch), "")
+		utils.PrintStatus("PUSHED", fmt.Sprintf("Artifacts committed and pushed to %s", result.Branch), "")
 	default:
 		utils.PrintSection("Git Summary")
-		utils.PrintStatus("WARN", "Commit created but push was skipped", "")
+		utils.PrintStatus("WARN", "Artifact commit created but push was skipped", "")
 	}
 	fmt.Println()
 }

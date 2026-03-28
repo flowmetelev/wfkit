@@ -71,7 +71,7 @@ Example:
   "ghUserName": "your-username",
   "repositoryName": "your-repo",
   "packageManager": "bun",
-  "branch": "main",
+  "assetBranch": "wfkit-dist",
   "buildDir": "dist/assets",
   "devHost": "localhost",
   "devPort": 5173,
@@ -357,8 +357,8 @@ Options:
 - `--script-url` Override the generated script URL
 - `--dev-port` Local dev server port for legacy `dev` mode
 - `--dev-host` Local dev server host for legacy `dev` mode
-- `--custom-commit` Custom Git commit message
-- `--branch` Git branch for CDN URLs
+- `--custom-commit` Custom Git commit message for the asset branch publish
+- `--asset-branch` Git branch used for published build artifacts and jsDelivr URLs
 - `--build-dir` Build output directory
 - `--notify` Show a desktop notification and play a sound when finished
 - `--update` Check for CLI updates before publish
@@ -384,11 +384,12 @@ Options:
 
 - `--dry-run` Show the migration plan without writing files or updating Webflow
 - `--force` Overwrite existing generated migration targets
-- `--custom-commit` Custom Git commit message for the generated migration commit
-- `--branch` Git branch for CDN URLs
+- `--custom-commit` Custom Git commit message for the generated migration publish
+- `--asset-branch` Git branch used for published build artifacts and jsDelivr URLs
 - `--build-dir` Build output directory
 - `--notify` Show a desktop notification and play a sound when finished
-- `--update` Check for CLI updates before migration
+
+`wfkit publish` and `wfkit migrate` publish only the built files in `buildDir` to the asset branch. They don't commit or push your working tree source files.
 
 ### `wfkit update`
 

@@ -13,10 +13,11 @@ import (
 )
 
 const (
-	buildDirKey   = "build-dir"
-	branchKey     = "branch"
-	scriptUrlKey  = "script-url"
-	defaultBranch = "main"
+	buildDirKey        = "build-dir"
+	assetBranchKey     = "asset-branch"
+	branchKey          = "branch"
+	scriptUrlKey       = "script-url"
+	defaultAssetBranch = "wfkit-dist"
 )
 
 type GitPushResult struct {
@@ -31,10 +32,6 @@ func DoBuild(args map[string]interface{}, ghUser, repo, pkgMgr string) (string, 
 	buildDir, ok := args[buildDirKey].(string)
 	if !ok || buildDir == "" {
 		return "", fmt.Errorf("missing or empty 'build-dir' argument")
-	}
-	branch, ok := args[branchKey].(string)
-	if !ok || branch == "" {
-		branch = defaultBranch
 	}
 	scriptUrl, ok := args[scriptUrlKey].(string)
 
@@ -53,47 +50,10 @@ func DoBuild(args map[string]interface{}, ghUser, repo, pkgMgr string) (string, 
 	}
 
 	if scriptUrl == "" {
-		scriptUrl = buildCDNUrl(ghUser, repo, branch, buildDir, globalEntry)
+		scriptUrl = buildCDNUrl(ghUser, repo, resolveAssetBranchArg(args), buildDir, globalEntry)
 	}
 	utils.CPrint(fmt.Sprintf("Build completed successfully. Script URL: %s", scriptUrl), "green")
 	return scriptUrl, nil
-}
-
-// DoPushToGithub выполняет коммит и пуш в GitHub
-func DoPushToGithub(branch, commitMsg string) (GitPushResult, error) {
-	utils.CPrint("Preparing to push to GitHub...", "cyan")
-	result := GitPushResult{Branch: branch}
-
-	if branch == "" {
-		branch = defaultBranch
-		result.Branch = branch
-	}
-
-	if _, err := runCmd("git", "add", "."); err != nil {
-		return result, fmt.Errorf("git add failed: %w", err)
-	}
-	result.Staged = true
-
-	hasChanges, err := hasStagedChanges()
-	if err != nil {
-		return result, err
-	}
-	if !hasChanges {
-		utils.CPrint("No git changes to commit after staging, skipping push", "yellow")
-		return result, nil
-	}
-
-	if _, err := runCmd("git", "commit", "-m", commitMsg); err != nil {
-		return result, fmt.Errorf("git commit failed: %w", err)
-	}
-	result.Committed = true
-
-	if _, err := runCmd("git", "push", "-u", "origin", branch); err != nil {
-		return result, fmt.Errorf("git push failed: %w", err)
-	}
-	result.Pushed = true
-	utils.CPrint("Changes pushed successfully", "green")
-	return result, nil
 }
 
 // Вспомогательные функции
@@ -166,14 +126,12 @@ func buildCDNUrl(user, repo, branch, baseDir, fileName string) string {
 	)
 }
 
-func hasStagedChanges() (bool, error) {
-	cmd := exec.Command("git", "diff", "--cached", "--quiet")
-	err := cmd.Run()
-	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
-			return true, nil
-		}
-		return false, fmt.Errorf("git diff --cached --quiet failed: %v", err)
+func resolveAssetBranchArg(args map[string]interface{}) string {
+	if branch, ok := args[assetBranchKey].(string); ok && strings.TrimSpace(branch) != "" {
+		return branch
 	}
-	return false, nil
+	if branch, ok := args[branchKey].(string); ok && strings.TrimSpace(branch) != "" {
+		return branch
+	}
+	return defaultAssetBranch
 }

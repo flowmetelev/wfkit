@@ -183,10 +183,7 @@ func PlanByPagePublish(ctx context.Context, siteName, cookies, pToken, ghUser, r
 		return ByPagePlan{}, fmt.Errorf("missing or invalid 'build-dir' argument")
 	}
 
-	branch, ok := args["branch"].(string)
-	if !ok {
-		return ByPagePlan{}, fmt.Errorf("missing or invalid 'branch' argument")
-	}
+	assetBranch := resolveAssetBranch(args)
 
 	env, ok := args["env"].(string)
 	if !ok {
@@ -201,7 +198,7 @@ func PlanByPagePublish(ctx context.Context, siteName, cookies, pToken, ghUser, r
 	}
 
 	if globalPath, err := build.ResolveGlobalEntry(buildDir); err == nil && globalPath != "" {
-		globalURL := buildCDNUrl(ghUser, repo, branch, buildDir, globalPath, env, args)
+		globalURL := buildCDNUrl(ghUser, repo, assetBranch, buildDir, globalPath, env, args)
 		globalPlan, err := PreviewGlobalPublish(ctx, siteName, cookies, pToken, globalURL, env)
 		if err != nil {
 			return ByPagePlan{}, err
@@ -263,7 +260,7 @@ func PlanByPagePublish(ctx context.Context, siteName, cookies, pToken, ghUser, r
 		if manifestPath, ok := pageEntries[folderKey]; ok {
 			pagePath = manifestPath
 		}
-		pagePlan.NextSrc = buildCDNUrl(ghUser, repo, branch, buildDir, pagePath, env, args)
+		pagePlan.NextSrc = buildCDNUrl(ghUser, repo, assetBranch, buildDir, pagePath, env, args)
 
 		if page.PostBody == "" {
 			pagePlan.Action = "missing_postbody"
@@ -413,4 +410,14 @@ func valueOrDash(value string) string {
 		return "-"
 	}
 	return value
+}
+
+func resolveAssetBranch(args map[string]interface{}) string {
+	if branch, ok := args["asset-branch"].(string); ok && strings.TrimSpace(branch) != "" {
+		return branch
+	}
+	if branch, ok := args["branch"].(string); ok && strings.TrimSpace(branch) != "" {
+		return branch
+	}
+	return "wfkit-dist"
 }
