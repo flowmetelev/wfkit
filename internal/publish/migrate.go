@@ -169,10 +169,7 @@ func PublishMigratedPages(ctx context.Context, siteName, baseURL, cookies, pToke
 		return MigrationPublishResult{}, fmt.Errorf("missing or invalid 'build-dir' argument")
 	}
 
-	branch, ok := args["branch"].(string)
-	if !ok || branch == "" {
-		branch = "main"
-	}
+	assetBranch := resolveAssetBranch(args)
 
 	env, ok := args["env"].(string)
 	if !ok || env == "" {
@@ -186,7 +183,7 @@ func PublishMigratedPages(ctx context.Context, siteName, baseURL, cookies, pToke
 	}
 
 	if globalPath, err := build.ResolveGlobalEntry(buildDir); err == nil && globalPath != "" {
-		globalURL := buildCDNUrl(ghUser, repo, branch, buildDir, globalPath, env, args)
+		globalURL := buildCDNUrl(ghUser, repo, assetBranch, buildDir, globalPath, env, args)
 		if shouldWriteGlobalMigration(plan.Global) {
 			newPostBody := updateScript(plan.Global.CleanedPostBody, globalURL, globalScriptID, env)
 			result.GlobalPlan = GlobalPublishPlan{
@@ -230,7 +227,7 @@ func PublishMigratedPages(ctx context.Context, siteName, baseURL, cookies, pToke
 			return result, fmt.Errorf("build manifest is missing page entry for %s (%s)", pageLabel(webflow.Page{ID: page.PageID, Title: page.Title, Slug: page.Slug}), page.FolderKey)
 		}
 
-		nextSrc := buildCDNUrl(ghUser, repo, branch, buildDir, manifestPath, env, args)
+		nextSrc := buildCDNUrl(ghUser, repo, assetBranch, buildDir, manifestPath, env, args)
 		newPostBody := updateScript(page.CleanedPostBody, nextSrc, pageScriptID, env)
 		if page.CurrentSrc == nextSrc && newPostBody == page.CurrentPostBody {
 			continue

@@ -106,7 +106,7 @@ func (f *migrateFlow) loadConfig() error {
 	f.pagesDir = resolveStringFlag(f.cliContext, "pages-dir", "src/pages")
 	f.args = map[string]interface{}{
 		"env":           "prod",
-		"branch":        resolveStringFlag(f.cliContext, "branch", cfg.Branch),
+		"asset-branch":  resolveAssetBranchFlag(f.cliContext, cfg.AssetBranch),
 		"build-dir":     resolveStringFlag(f.cliContext, "build-dir", cfg.BuildDir),
 		"custom-commit": f.cliContext.String("custom-commit"),
 		"notify":        resolveNotifyFlag(f.cliContext),
@@ -189,11 +189,15 @@ func (f *migrateFlow) buildAssets() error {
 }
 
 func (f *migrateFlow) pushGit() error {
-	utils.CPrint("Pushing migrated files to GitHub...", "cyan")
+	utils.CPrint("Publishing migrated build artifacts to GitHub...", "cyan")
 	if err := ensureGitHubRepositoryReady(f.config.GitHubUser, f.config.RepositoryName); err != nil {
 		return err
 	}
-	gitResult, err := build.DoPushToGithub(f.args["branch"].(string), f.args["custom-commit"].(string))
+	gitResult, err := build.PublishBuildArtifacts(build.ArtifactPublishOptions{
+		BuildDir:      f.args["build-dir"].(string),
+		AssetBranch:   f.args["asset-branch"].(string),
+		CommitMessage: f.args["custom-commit"].(string),
+	})
 	if err != nil {
 		return fmt.Errorf("GitHub push failed after migration: %w", err)
 	}

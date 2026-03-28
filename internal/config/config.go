@@ -9,17 +9,17 @@ import (
 )
 
 const (
-	projectConfigFile = "wfkit.json"
-	defaultPkgManager = "bun"
-	defaultBuildDir   = "dist/assets"
-	defaultBranch     = "main"
-	defaultDevHost    = "localhost"
-	defaultDevPort    = 5173
-	defaultProxyHost  = "localhost"
-	defaultProxyPort  = 3000
-	defaultEntryFile  = "src/global/index.ts"
-	defaultDocsEntry  = "docs/index.md"
-	defaultDocsSlug   = "docs"
+	projectConfigFile  = "wfkit.json"
+	defaultPkgManager  = "bun"
+	defaultBuildDir    = "dist/assets"
+	defaultAssetBranch = "wfkit-dist"
+	defaultDevHost     = "localhost"
+	defaultDevPort     = 5173
+	defaultProxyHost   = "localhost"
+	defaultProxyPort   = 3000
+	defaultEntryFile   = "src/global/index.ts"
+	defaultDocsEntry   = "docs/index.md"
+	defaultDocsSlug    = "docs"
 )
 
 type Config struct {
@@ -29,7 +29,7 @@ type Config struct {
 	RepositoryName string
 	PackageManager string
 	BuildDir       string
-	Branch         string
+	AssetBranch    string
 	DevHost        string
 	DevPort        int
 	ProxyHost      string
@@ -47,6 +47,7 @@ type projectFileConfig struct {
 	RepositoryName string `json:"repositoryName"`
 	PackageManager string `json:"packageManager"`
 	BuildDir       string `json:"buildDir"`
+	AssetBranch    string `json:"assetBranch"`
 	Branch         string `json:"branch"`
 	DevHost        string `json:"devHost"`
 	DevPort        int    `json:"devPort"`
@@ -68,6 +69,7 @@ type packageJSON struct {
 		RepositoryName string `json:"repositoryName"`
 		PackageManager string `json:"packageManager"`
 		BuildDir       string `json:"buildDir"`
+		AssetBranch    string `json:"assetBranch"`
 		Branch         string `json:"branch"`
 		DevHost        string `json:"devHost"`
 		DevPort        int    `json:"devPort"`
@@ -146,7 +148,7 @@ func defaultConfig() Config {
 	return Config{
 		PackageManager: defaultPkgManager,
 		BuildDir:       defaultBuildDir,
-		Branch:         defaultBranch,
+		AssetBranch:    defaultAssetBranch,
 		DevHost:        defaultDevHost,
 		DevPort:        defaultDevPort,
 		ProxyHost:      defaultProxyHost,
@@ -214,7 +216,10 @@ func mergePackageConfig(cfg *Config, pkg packageJSON) {
 		cfg.BuildDir = legacy.BuildDir
 	}
 	if legacy.Branch != "" {
-		cfg.Branch = legacy.Branch
+		cfg.AssetBranch = legacy.Branch
+	}
+	if legacy.AssetBranch != "" {
+		cfg.AssetBranch = legacy.AssetBranch
 	}
 	if legacy.DevHost != "" {
 		cfg.DevHost = legacy.DevHost
@@ -259,7 +264,10 @@ func mergeProjectFileConfig(cfg *Config, fileCfg projectFileConfig) {
 		cfg.BuildDir = fileCfg.BuildDir
 	}
 	if fileCfg.Branch != "" {
-		cfg.Branch = fileCfg.Branch
+		cfg.AssetBranch = fileCfg.Branch
+	}
+	if fileCfg.AssetBranch != "" {
+		cfg.AssetBranch = fileCfg.AssetBranch
 	}
 	if fileCfg.DevHost != "" {
 		cfg.DevHost = fileCfg.DevHost
@@ -305,8 +313,8 @@ func (c *Config) normalize() {
 	if c.BuildDir == "" {
 		c.BuildDir = defaultBuildDir
 	}
-	if c.Branch == "" {
-		c.Branch = defaultBranch
+	if c.AssetBranch == "" {
+		c.AssetBranch = defaultAssetBranch
 	}
 	if c.DevHost == "" {
 		c.DevHost = defaultDevHost

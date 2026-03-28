@@ -8,6 +8,8 @@ This project expects `wfkit` to be installed locally from `devDependencies`, so 
 
 Update `wfkit.json` with your real Webflow and GitHub settings.
 
+`assetBranch` controls where built files from `dist/assets` are published for jsDelivr. Keep your source code flow in normal feature branches and pull requests.
+
 If you just ran `wfkit init` without `--skip-install`, dependencies are already installed.
 After cloning the project later on another machine, install them with:
 
@@ -28,13 +30,13 @@ Open `http://localhost:3000` to work against your proxied `.webflow.io` site loc
 - `{{.RunScript}} dev` starts the Webflow proxy and local Vite dev server
 - `{{.RunScript}} build` builds production assets into `dist/assets`
 - `{{.RunScript}} docs` publishes `docs/index.md` to the `{{.DocsPageSlug}}` Webflow page
-- `{{.RunScript}} publish` builds, pushes, and updates Webflow production code
+- `{{.RunScript}} publish` builds assets, publishes `dist/assets` to the configured asset branch, and updates Webflow production code
 - `{{.RunScript}} lint` runs ESLint for scaffolded source files
 - `{{.RunScript}} typecheck` runs TypeScript checks
 
 ## Understand the architecture
 
-This scaffold separates *where code runs* from *what code does*.
+This scaffold separates _where code runs_ from _what code does_.
 
 - `src/global/index.ts` is the one explicit global entry. Use it for behavior that should be available on every page.
 - `src/global/modules/*` contains global modules that you choose to import from the global entry.
@@ -45,8 +47,8 @@ This scaffold separates *where code runs* from *what code does*.
 
 The rule of thumb is:
 
-- page files decide *where to mount*
-- feature files define *what the behavior is*
+- page files decide _where to mount_
+- feature files define _what the behavior is_
 - global files mount behavior shared across the whole site
 
 ## Use the project layout the intended way
@@ -99,23 +101,28 @@ Example:
 
 ```ts
 // src/features/home-cta.ts
-import { mountFeature } from '@/utils/webflow'
+import { mountFeature } from "@/utils/webflow";
 
 export function mountHomeCTA(root: ParentNode = document) {
-  mountFeature('home-cta', '[data-wf-home-cta]', element => {
-    element.setAttribute('data-cta-ready', 'true')
-  }, root)
+  mountFeature(
+    "home-cta",
+    "[data-wf-home-cta]",
+    (element) => {
+      element.setAttribute("data-cta-ready", "true");
+    },
+    root,
+  );
 }
 ```
 
 ```ts
 // src/pages/home/index.ts
-import { definePage } from '@/utils/webflow'
-import { mountHomeCTA } from '@/features/home-cta'
+import { definePage } from "@/utils/webflow";
+import { mountHomeCTA } from "@/features/home-cta";
 
-definePage('home', pageRoot => {
-  mountHomeCTA(pageRoot)
-})
+definePage("home", (pageRoot) => {
+  mountHomeCTA(pageRoot);
+});
 ```
 
 This keeps selectors, DOM behavior, and reuse in one place.

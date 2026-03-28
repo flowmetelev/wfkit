@@ -42,7 +42,7 @@ func newPublishRequest(c *cli.Context, cfg config.Config) *publishRequest {
 			"dev-port":      devPort,
 			"dev-host":      devHost,
 			"custom-commit": c.String("custom-commit"),
-			"branch":        resolveStringFlag(c, "branch", cfg.Branch),
+			"asset-branch":  resolveAssetBranchFlag(c, cfg.AssetBranch),
 			"build-dir":     resolveStringFlag(c, "build-dir", cfg.BuildDir),
 			"notify":        resolveNotifyFlag(c),
 		},
@@ -95,12 +95,16 @@ func (r *publishRequest) runProd() error {
 		return r.runProdDryRun(scriptURL)
 	}
 
-	utils.CPrint("Pushing to GitHub...", "cyan")
+	utils.CPrint("Publishing build artifacts to GitHub...", "cyan")
 	if err := ensureGitHubRepositoryReady(r.cfg.GitHubUser, r.cfg.RepositoryName); err != nil {
 		return err
 	}
 
-	gitResult, err := build.DoPushToGithub(r.branch(), r.customCommit())
+	gitResult, err := build.PublishBuildArtifacts(build.ArtifactPublishOptions{
+		BuildDir:      r.buildDir(),
+		AssetBranch:   r.assetBranch(),
+		CommitMessage: r.customCommit(),
+	})
 	if err != nil {
 		return fmt.Errorf("GitHub push failed: %w", err)
 	}
@@ -318,7 +322,7 @@ func (r *publishRequest) printSuccess() {
 		"Production assets are built and Webflow has been updated.",
 		[]utils.SummaryMetric{
 			{Label: "Environment", Value: "prod", Tone: "success"},
-			{Label: "Branch", Value: r.branch(), Tone: "info"},
+			{Label: "Asset branch", Value: r.assetBranch(), Tone: "info"},
 			{Label: "Mode", Value: map[bool]string{true: "by-page", false: "global"}[r.byPage()], Tone: "info"},
 		},
 		"git status",
@@ -332,7 +336,8 @@ func (r *publishRequest) dryRun() bool         { return r.args["dry-run"].(bool)
 func (r *publishRequest) scriptURL() string    { return r.args["script-url"].(string) }
 func (r *publishRequest) devPort() int         { return r.args["dev-port"].(int) }
 func (r *publishRequest) devHost() string      { return r.args["dev-host"].(string) }
-func (r *publishRequest) branch() string       { return r.args["branch"].(string) }
+func (r *publishRequest) assetBranch() string  { return r.args["asset-branch"].(string) }
+func (r *publishRequest) buildDir() string     { return r.args["build-dir"].(string) }
 func (r *publishRequest) customCommit() string { return r.args["custom-commit"].(string) }
 func (r *publishRequest) notify() bool         { return r.args["notify"].(bool) }
 func (r *publishRequest) isProd() bool         { return r.env() == "prod" }

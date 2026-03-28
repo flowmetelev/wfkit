@@ -37,7 +37,8 @@ func TestReadConfigPrefersProjectConfigFile(t *testing.T) {
 		"packageManager": "bun",
 		"devPort": 5174,
 		"proxyPort": 3001,
-		"branch": "release",
+		"branch": "legacy-release",
+		"assetBranch": "cdn-release",
 		"buildDir": "public/assets",
 		"globalEntry": "src/entry.ts",
 		"docsEntry": "docs/handbook.md",
@@ -67,8 +68,8 @@ func TestReadConfigPrefersProjectConfigFile(t *testing.T) {
 	if cfg.ProxyPort != 3001 {
 		t.Fatalf("expected proxy port 3001, got %d", cfg.ProxyPort)
 	}
-	if cfg.Branch != "release" {
-		t.Fatalf("expected branch release, got %q", cfg.Branch)
+	if cfg.AssetBranch != "cdn-release" {
+		t.Fatalf("expected asset branch cdn-release, got %q", cfg.AssetBranch)
 	}
 	if cfg.BuildDir != "public/assets" {
 		t.Fatalf("expected build dir public/assets, got %q", cfg.BuildDir)
@@ -124,8 +125,8 @@ func TestReadConfigFallsBackToPackageJSONAndDefaults(t *testing.T) {
 	if cfg.BuildDir != defaultBuildDir {
 		t.Fatalf("expected default build dir %q, got %q", defaultBuildDir, cfg.BuildDir)
 	}
-	if cfg.Branch != defaultBranch {
-		t.Fatalf("expected default branch %q, got %q", defaultBranch, cfg.Branch)
+	if cfg.AssetBranch != defaultAssetBranch {
+		t.Fatalf("expected default asset branch %q, got %q", defaultAssetBranch, cfg.AssetBranch)
 	}
 	if cfg.DevPort != defaultDevPort {
 		t.Fatalf("expected default dev port %d, got %d", defaultDevPort, cfg.DevPort)
@@ -135,6 +136,37 @@ func TestReadConfigFallsBackToPackageJSONAndDefaults(t *testing.T) {
 	}
 	if cfg.DocsPageSlug != defaultDocsSlug {
 		t.Fatalf("expected default docs page slug %q, got %q", defaultDocsSlug, cfg.DocsPageSlug)
+	}
+}
+
+func TestReadConfigUsesLegacyBranchAsAssetBranchFallback(t *testing.T) {
+	originalDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+
+	tmpDir := t.TempDir()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("chdir temp dir: %v", err)
+	}
+	defer func() {
+		_ = os.Chdir(originalDir)
+	}()
+
+	writeTestFile(t, filepath.Join(tmpDir, "wfkit.json"), `{
+		"appName": "custom-site",
+		"ghUserName": "project-user",
+		"repositoryName": "project-repo",
+		"branch": "legacy-release"
+	}`)
+
+	cfg, err := ReadConfig()
+	if err != nil {
+		t.Fatalf("ReadConfig: %v", err)
+	}
+
+	if cfg.AssetBranch != "legacy-release" {
+		t.Fatalf("expected legacy branch fallback legacy-release, got %q", cfg.AssetBranch)
 	}
 }
 
