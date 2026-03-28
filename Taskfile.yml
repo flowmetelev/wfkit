@@ -128,6 +128,8 @@ tasks:
       - mkdir -p .git/hooks
       - 'printf ''#!/bin/sh\n\nnode scripts/validate-release-commit.mjs "$1"\n'' > .git/hooks/commit-msg'
       - chmod 755 .git/hooks/commit-msg
+      - 'printf ''#!/bin/sh\n\nnode scripts/guard-main-push.mjs\n'' > .git/hooks/pre-push'
+      - chmod 755 .git/hooks/pre-push
 
   play:init:
     desc: "Test 'wfkit init' inside the playground directory"
