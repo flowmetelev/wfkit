@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -144,6 +145,43 @@ func TestInitializeLocalRepository(t *testing.T) {
 	}
 	if !status.HasGitRepository || !status.IsProjectRoot {
 		t.Fatalf("expected initialized git repository at project root, got %+v", status)
+	}
+}
+
+func TestSameFilesystemPathTreatsSymlinksAsSameLocation(t *testing.T) {
+	baseDir := t.TempDir()
+	targetDir := filepath.Join(baseDir, "repo")
+	linkDir := filepath.Join(baseDir, "repo-link")
+
+	if err := os.MkdirAll(targetDir, 0o755); err != nil {
+		t.Fatalf("mkdir target dir: %v", err)
+	}
+	if err := os.Symlink(targetDir, linkDir); err != nil {
+		t.Skipf("symlink is not supported: %v", err)
+	}
+
+	if !sameFilesystemPath(targetDir, linkDir) {
+		t.Fatalf("expected symlinked paths to be treated as the same location")
+	}
+}
+
+func TestSameFilesystemPathTreatsCaseOnlyVariantsAsSameLocationWhenSupported(t *testing.T) {
+	baseDir := t.TempDir()
+	targetDir := filepath.Join(baseDir, "CaseRepo")
+	if err := os.MkdirAll(targetDir, 0o755); err != nil {
+		t.Fatalf("mkdir target dir: %v", err)
+	}
+
+	caseVariant := filepath.Join(baseDir, strings.ToLower(filepath.Base(targetDir)))
+	if caseVariant == targetDir {
+		t.Skip("case-only variant is identical on this filesystem")
+	}
+	if _, err := os.Stat(caseVariant); err != nil {
+		t.Skipf("filesystem appears case-sensitive for this path variant: %v", err)
+	}
+
+	if !sameFilesystemPath(targetDir, caseVariant) {
+		t.Fatalf("expected case-only path variants to be treated as the same location")
 	}
 }
 

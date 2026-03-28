@@ -53,7 +53,7 @@ func DetectGitHubRepositoryStatus() (GitHubRepositoryStatus, error) {
 			repoRoot = realPath
 		}
 		status.RepoRoot = repoRoot
-		status.IsProjectRoot = status.CurrentDir != "" && status.RepoRoot == status.CurrentDir
+		status.IsProjectRoot = sameFilesystemPath(status.CurrentDir, status.RepoRoot)
 	}
 
 	cmd = exec.Command("git", "remote", "get-url", "origin")
@@ -98,4 +98,21 @@ func isGitHubRemoteURL(rawURL string) bool {
 		return false
 	}
 	return strings.Contains(value, "github.com") || strings.HasPrefix(value, "git@github:")
+}
+
+func sameFilesystemPath(a, b string) bool {
+	if a == "" || b == "" {
+		return false
+	}
+	if filepath.Clean(a) == filepath.Clean(b) {
+		return true
+	}
+
+	infoA, errA := os.Stat(a)
+	infoB, errB := os.Stat(b)
+	if errA != nil || errB != nil {
+		return false
+	}
+
+	return os.SameFile(infoA, infoB)
 }
