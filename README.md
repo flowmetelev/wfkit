@@ -231,7 +231,7 @@ Use `--force` if a target page or global migration file already exists and you w
 
 `wfkit` uses the version in [`npm/package.json`](./npm/package.json) as the single release version.
 
-The simplest release flow is to create a dedicated release commit in your branch:
+The simplest release flow is:
 
 ```bash
 task release:patch
@@ -244,11 +244,14 @@ task release:minor
 task release:major
 ```
 
-These commands:
+These commands already:
 
-1. require a clean working tree
-2. bump the version in `npm/package.json`
-3. create a commit like `chore: release vX.Y.Z`
+1. validate the release version metadata
+2. run the npm installer test
+3. run `go test ./...`
+4. require a clean working tree before bumping
+5. bump the version in `npm/package.json`
+6. create a commit like `chore: release vX.Y.Z`
 
 If you only want to bump the version without creating a commit, use:
 
@@ -279,7 +282,7 @@ If the version in `npm/package.json` hasn't changed, the release workflow skips 
 Typical flow:
 
 1. make and commit your feature changes in a branch
-2. run `task release:patch` or `task release:minor`
+2. run one command: `task release:patch`, `task release:minor`, or `task release:major`
 3. push the branch and open a pull request
 4. merge into `main`
 5. let GitHub Actions cut the release automatically

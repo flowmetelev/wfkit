@@ -78,6 +78,13 @@ tasks:
       - task: version:bump
         vars: { TYPE: major }
 
+  release:verify:
+    desc: "Run the checks required before cutting a release"
+    cmds:
+      - task: version:check
+      - node --test npm/install.test.js
+      - go test ./...
+
   release:prepare:
     desc: "Bump the release version and create a release commit. Usage: task release:prepare TYPE=patch"
     vars:
@@ -95,20 +102,23 @@ tasks:
       - 'git commit -m "chore: release v{{.RELEASE_VERSION}}"'
 
   release:patch:
-    desc: "Prepare a patch release commit"
+    desc: "Verify, bump the patch version, and create a release commit"
     cmds:
+      - task: release:verify
       - task: release:prepare
         vars: { TYPE: patch }
 
   release:minor:
-    desc: "Prepare a minor release commit"
+    desc: "Verify, bump the minor version, and create a release commit"
     cmds:
+      - task: release:verify
       - task: release:prepare
         vars: { TYPE: minor }
 
   release:major:
-    desc: "Prepare a major release commit"
+    desc: "Verify, bump the major version, and create a release commit"
     cmds:
+      - task: release:verify
       - task: release:prepare
         vars: { TYPE: major }
 
