@@ -33,6 +33,50 @@ If your change affects project initialization, also verify the scaffold flow its
 go run ./cmd/wfkit init --name test-project --init-git
 ```
 
+## Development and release flow
+
+For normal development:
+
+1. Make your code changes.
+2. Run the checks that match the change.
+3. Commit the feature or fix normally.
+
+Example:
+
+```bash
+git add .
+git commit -m "feat(cli): add new command"
+```
+
+When you want to ship a new version, create a separate release commit:
+
+```bash
+task release:patch
+```
+
+Or:
+
+```bash
+task release:minor
+task release:major
+```
+
+These commands run the release checks, bump `npm/package.json`, and create a release commit like `chore: release vX.Y.Z`.
+
+Versioning rule of thumb:
+
+- use `patch` for fixes and small improvements
+- use `minor` for new features without breaking changes
+- use `major` for breaking changes
+
+Then push `main` and let GitHub Actions publish the release.
+
+For contributors:
+
+- contributors should usually open PRs with feature or fix commits only
+- maintainers should cut the release commit when it's time to publish
+- keep the version bump separate from product changes
+
 ## Keep pull requests easy to review
 
 Good pull requests are:
