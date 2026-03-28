@@ -163,7 +163,7 @@ func TestInitProjectCreatesScaffoldInsideProjectDirectory(t *testing.T) {
 	if !strings.Contains(string(packageData), `"fast-glob":`) {
 		t.Fatalf("expected fast-glob dependency in package.json, got: %s", string(packageData))
 	}
-	if !strings.Contains(string(packageData), `"@flowmetelev/wfkit": "^1.2.3"`) {
+	if !strings.Contains(string(packageData), `"@flowmetelev/wfkit": "latest"`) {
 		t.Fatalf("expected wfkit local dependency in package.json, got: %s", string(packageData))
 	}
 	if !strings.Contains(string(packageData), `"private": true`) {

@@ -835,8 +835,12 @@ func detectDevScript() string {
 		return "dev"
 	}
 
-	for _, script := range []string{"dev", "vite"} {
-		if _, ok := pkg.Scripts[script]; ok {
+	return preferredDevScript(pkg.Scripts)
+}
+
+func preferredDevScript(scripts map[string]string) string {
+	for _, script := range []string{"dev:vite", "vite", "dev"} {
+		if _, ok := scripts[script]; ok {
 			return script
 		}
 	}
