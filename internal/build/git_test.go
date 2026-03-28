@@ -74,6 +74,48 @@ func TestDetectGitHubRepositoryStatus(t *testing.T) {
 	}
 }
 
+func TestDetectGitHubRepositoryStatusTreatsSymlinkedProjectRootAsRoot(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git is not installed")
+	}
+
+	originalDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	defer func() {
+		_ = os.Chdir(originalDir)
+	}()
+
+	baseDir := t.TempDir()
+	repoDir := filepath.Join(baseDir, "repo")
+	linkDir := filepath.Join(baseDir, "repo-link")
+
+	if err := os.MkdirAll(repoDir, 0o755); err != nil {
+		t.Fatalf("mkdir repo dir: %v", err)
+	}
+	if err := os.Symlink(repoDir, linkDir); err != nil {
+		t.Skipf("symlink is not supported: %v", err)
+	}
+
+	if err := os.Chdir(repoDir); err != nil {
+		t.Fatalf("chdir repo dir: %v", err)
+	}
+	runGit(t, "init")
+
+	if err := os.Chdir(linkDir); err != nil {
+		t.Fatalf("chdir symlink dir: %v", err)
+	}
+
+	status, err := DetectGitHubRepositoryStatus()
+	if err != nil {
+		t.Fatalf("DetectGitHubRepositoryStatus via symlink: %v", err)
+	}
+	if !status.IsProjectRoot {
+		t.Fatalf("expected symlinked project root to be treated as repo root, got %+v", status)
+	}
+}
+
 func runGit(t *testing.T, args ...string) {
 	t.Helper()
 	cmd := exec.Command("git", args...)

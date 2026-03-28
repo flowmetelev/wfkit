@@ -29,6 +29,9 @@ func DetectGitHubRepositoryStatus() (GitHubRepositoryStatus, error) {
 		if absPath, absErr := filepath.Abs(currentDir); absErr == nil {
 			currentDir = absPath
 		}
+		if realPath, realErr := normalizeRealPath(currentDir); realErr == nil {
+			currentDir = realPath
+		}
 		status.CurrentDir = filepath.Clean(currentDir)
 	}
 
@@ -45,7 +48,11 @@ func DetectGitHubRepositoryStatus() (GitHubRepositoryStatus, error) {
 	cmd = exec.Command("git", "rev-parse", "--show-toplevel")
 	output, err = cmd.CombinedOutput()
 	if err == nil {
-		status.RepoRoot = filepath.Clean(strings.TrimSpace(string(output)))
+		repoRoot := filepath.Clean(strings.TrimSpace(string(output)))
+		if realPath, realErr := normalizeRealPath(repoRoot); realErr == nil {
+			repoRoot = realPath
+		}
+		status.RepoRoot = repoRoot
 		status.IsProjectRoot = status.CurrentDir != "" && status.RepoRoot == status.CurrentDir
 	}
 
