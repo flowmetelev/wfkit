@@ -1,48 +1,48 @@
 {
-  "name": "@flowmetelev/wfkit",
-  "version": "1.0.2",
-  "description": "A powerful CLI utility for securely publishing Webflow projects with live development support.",
-  "main": "install.js",
-  "bin": {
-    "wfkit": "bin/wfkit.js"
-  },
-  "scripts": {
-    "postinstall": "node install.js"
-  },
-  "os": [
-    "darwin",
-    "linux",
-    "win32"
-  ],
-  "cpu": [
-    "x64",
-    "arm64"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/flowmetelev/wfkit.git"
-  },
-  "keywords": [
-    "webflow",
-    "cli",
-    "publish",
-    "development",
-    "deploy",
-    "sync"
-  ],
-  "author": "Dmitry Metelev <mailmetelev@gmail.com>",
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/flowmetelev/wfkit/issues"
-  },
-  "homepage": "https://github.com/flowmetelev/wfkit#readme",
-  "files": [
-    "bin/",
-    "install.js",
-    "package.json",
-    "README.md"
-  ],
-  "engines": {
-    "node": ">=14.0.0"
-  }
+    "name": "@flowmetelev/wfkit",
+    "version": "1.1.0",
+    "description": "A powerful CLI utility for securely publishing Webflow projects with live development support.",
+    "main": "install.js",
+    "bin": {
+        "wfkit": "bin/wfkit.js"
+    },
+    "scripts": {
+        "postinstall": "node install.js"
+    },
+    "os": [
+        "darwin",
+        "linux",
+        "win32"
+    ],
+    "cpu": [
+        "x64",
+        "arm64"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/flowmetelev/wfkit.git"
+    },
+    "keywords": [
+        "webflow",
+        "cli",
+        "publish",
+        "development",
+        "deploy",
+        "sync"
+    ],
+    "author": "Dmitry Metelev <mailmetelev@gmail.com>",
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/flowmetelev/wfkit/issues"
+    },
+    "homepage": "https://github.com/flowmetelev/wfkit#readme",
+    "files": [
+        "bin/",
+        "install.js",
+        "package.json",
+        "README.md"
+    ],
+    "engines": {
+        "node": ">=14.0.0"
+    }
 }
