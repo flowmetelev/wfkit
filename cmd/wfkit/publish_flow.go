@@ -35,7 +35,7 @@ func newPublishRequest(c *cli.Context, cfg config.Config) *publishRequest {
 		cfg:     cfg,
 		baseURL: cfg.EffectiveDesignURL(),
 		args: map[string]interface{}{
-			"env":           c.String("env"),
+			"env":           resolveStringFlag(c, "env", "prod"),
 			"by-page":       c.Bool("by-page"),
 			"dry-run":       c.Bool("dry-run"),
 			"script-url":    resolveStringFlag(c, "script-url", ""),
