@@ -1,17 +1,24 @@
 {
   "name": "{{.Name}}",
   "version": "0.0.0",
+  "private": true,
   "scripts": {
-    "dev": "vite",
+    "dev": "wfkit proxy",
+    "dev:vite": "vite",
+    "docs": "wfkit docs",
     "proxy": "wfkit proxy",
     "start": "wfkit proxy",
-    "publish": "wfkit publish --env prod",
     "build": "vite build",
-    "vite": "vite",
-    "lint": "eslint \"src/**/*.ts\"",
-    "format": "prettier --write \"src/**/*.ts\""
+    "preview": "vite preview",
+    "publish": "wfkit publish --env prod",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src build vite.config.js",
+    "lint:fix": "eslint src build vite.config.js --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "devDependencies": {
+    "@flowmetelev/wfkit": "{{.WFKitVersion}}",
     "fast-glob": "^3.3.3",
     "vite": "^8.0.1",
     "typescript": "^5.0.0",

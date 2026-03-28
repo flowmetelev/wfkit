@@ -40,6 +40,8 @@ wfkit init --name my-site
 ```
 
 Add `--init-git` if you want the scaffold to initialize a local repository immediately.
+Add `--skip-install` if you only want the files and do not want to install dependencies yet.
+Use `--force` if you explicitly want to write scaffold files into an existing non-empty directory.
 
 This creates a new folder in your current directory:
 
@@ -49,6 +51,7 @@ my-site/
 
 Inside it, `wfkit` generates:
 
+- `README.md`
 - `package.json`
 - `wfkit.json`
 - `vite.config.js`
@@ -85,6 +88,8 @@ The generated project is organized for Webflow:
 
 ```text
 src/
+  features/
+    site-status.ts
   global/
     index.ts
     modules/
@@ -94,6 +99,7 @@ src/
       index.ts
   utils/
     dom.ts
+    webflow.ts
 build/
   webflow-vite-plugin.js
 docs/
@@ -105,9 +111,11 @@ dist/assets/
 How it works:
 
 - `src/global/index.ts` is the one explicit global entry
+- `src/features/*` is for reusable behaviors that can be mounted from global or page entries
 - `src/global/modules/*` contains reusable global behaviors that you choose to import from the global entry
 - `src/pages/*/index.ts` is for per-page code
-- `src/utils/*` is shared code that can be used from both global and page entries
+- `src/utils/dom.ts` contains low-level DOM helpers
+- `src/utils/webflow.ts` contains DRY mount helpers that align page and feature bootstrapping with the Webflow runtime
 - `docs/index.md` is the default markdown entry for the docs hub page
 - `dist/assets/wfkit-manifest.json` is generated during build and used by `wfkit` to resolve the correct output files
 
@@ -157,7 +165,7 @@ bun install
 Then:
 
 ```bash
-bun run start
+bun run dev
 ```
 
 This starts:
@@ -310,6 +318,8 @@ This checks:
 
 Create a new project scaffold.
 
+The scaffold is TypeScript-first and installs dependencies by default unless you pass `--skip-install`.
+
 Options:
 
 - `--name` Project name
@@ -317,7 +327,8 @@ Options:
 - `--global-entry` Global entry file
 - `--global-var` Global variable name
 - `--init-git` Initialize a local git repository
-- `--types` Generate TypeScript types
+- `--skip-install` Skip dependency installation after generating the scaffold
+- `--force` Allow writing scaffold files into an existing non-empty directory
 - `--package-manager` Package manager: `bun`, `npm`, `yarn`, `pnpm`
 
 ### `wfkit proxy`

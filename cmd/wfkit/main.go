@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"syscall"
@@ -164,8 +165,9 @@ func interactiveMode(c *cli.Context) error {
 func initMode(c *cli.Context) error {
 	name := c.String("name")
 	packageManager := c.String("package-manager")
-	types := c.Bool("types")
 	initGit := c.Bool("init-git")
+	skipInstall := c.Bool("skip-install")
+	force := c.Bool("force")
 
 	// Попытка загрузить глобальный конфиг для подстановки значений по умолчанию
 	importConfig, _ := globalconfig.LoadConfig()
@@ -182,6 +184,7 @@ func initMode(c *cli.Context) error {
 
 	// If the user didn't provide specific flags (or just ran 'wfkit init'), ask them interactively
 	if c.NumFlags() == 0 {
+		installDependencies := true
 		err := huh.NewForm(
 			huh.NewGroup(
 				huh.NewInput().
@@ -205,8 +208,9 @@ func initMode(c *cli.Context) error {
 					).
 					Value(&packageManager),
 				huh.NewConfirm().
-					Title("Use TypeScript?").
-					Value(&types),
+					Title("Install dependencies now?").
+					Description("Installs the generated project's local CLI and frontend tooling immediately.").
+					Value(&installDependencies),
 				huh.NewConfirm().
 					Title("Initialize git repository?").
 					Description("Runs `git init` in the new project directory.").
@@ -217,10 +221,12 @@ func initMode(c *cli.Context) error {
 		if err != nil {
 			return err
 		}
+
+		skipInstall = !installDependencies
 	}
 
 	if repositoryName == "" {
-		repositoryName = name
+		repositoryName = filepath.Base(filepath.Clean(name))
 	}
 
 	// Сохраняем введенные данные в глобальный конфиг, чтобы использовать их в следующий раз
@@ -248,13 +254,16 @@ func initMode(c *cli.Context) error {
 	}
 
 	opts := initconfig.Options{
-		Name:           name,
+		ProjectDir:     name,
+		Name:           filepath.Base(filepath.Clean(name)),
 		PagesDir:       pagesDir,
 		GlobalEntry:    globalEntry,
 		GlobalVar:      globalVar,
-		Types:          types,
 		InitGit:        initGit,
+		Force:          force,
+		SkipInstall:    skipInstall,
 		PackageManager: packageManager,
+		CLIValue:       c.App.Version,
 		GitHubUser:     githubUser,
 		RepositoryName: repositoryName,
 	}
@@ -263,19 +272,47 @@ func initMode(c *cli.Context) error {
 		return fmt.Errorf("initialization failed: %w", err)
 	}
 
+	nextSteps := []string{fmt.Sprintf("cd %s", name)}
+	if skipInstall {
+		nextSteps = append(nextSteps, packageManagerInstallCommand(packageManager))
+	}
+	nextSteps = append(nextSteps, packageManagerScriptCommand(packageManager, "dev"), "wfkit doctor")
+
 	utils.PrintSuccessScreen(
 		"Project initialized",
 		"Your Webflow project scaffold is ready.",
 		[]utils.SummaryMetric{
-			{Label: "Project", Value: name, Tone: "success"},
+			{Label: "Project", Value: opts.Name, Tone: "success"},
 			{Label: "Package manager", Value: packageManager, Tone: "info"},
-			{Label: "TypeScript", Value: map[bool]string{true: "on", false: "off"}[types], Tone: "info"},
+			{Label: "Dependencies", Value: map[bool]string{true: "skipped", false: "installed"}[skipInstall], Tone: "info"},
 		},
-		fmt.Sprintf("cd %s", name),
-		fmt.Sprintf("%s run start", packageManager),
-		"wfkit doctor",
+		nextSteps...,
 	)
 	return nil
+}
+
+func packageManagerScriptCommand(packageManager, script string) string {
+	switch packageManager {
+	case "bun":
+		return fmt.Sprintf("bun run %s", script)
+	case "yarn", "pnpm":
+		return fmt.Sprintf("%s %s", packageManager, script)
+	default:
+		return fmt.Sprintf("npm run %s", script)
+	}
+}
+
+func packageManagerInstallCommand(packageManager string) string {
+	switch packageManager {
+	case "bun":
+		return "bun install"
+	case "yarn":
+		return "yarn"
+	case "pnpm":
+		return "pnpm install"
+	default:
+		return "npm install"
+	}
 }
 
 // updateMode checks for and processes updates
@@ -1033,8 +1070,9 @@ func main() {
 					&cli.StringFlag{Name: "pages-dir", Value: "src/pages", Usage: "Directory for pages"},
 					&cli.StringFlag{Name: "global-entry", Value: "src/global/index.ts", Usage: "Global entry file"},
 					&cli.StringFlag{Name: "global-var", Value: "WF", Usage: "Global variable name"},
-					&cli.BoolFlag{Name: "types", Value: true, Usage: "Generate TypeScript types"},
 					&cli.BoolFlag{Name: "init-git", Usage: "Initialize a local git repository inside the project"},
+					&cli.BoolFlag{Name: "skip-install", Usage: "Skip dependency installation after generating the scaffold"},
+					&cli.BoolFlag{Name: "force", Usage: "Allow writing scaffold files into an existing non-empty directory"},
 					&cli.StringFlag{Name: "package-manager", Value: "bun", Usage: "Package manager (npm, yarn, pnpm, bun)"},
 				},
 				Action: initMode,

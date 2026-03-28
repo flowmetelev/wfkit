@@ -87,9 +87,6 @@ tasks:
 
   release:prepare:
     desc: "Bump the release version and create a release commit. Usage: task release:prepare TYPE=patch"
-    vars:
-      RELEASE_VERSION:
-        sh: node -p "require('./npm/package.json').version"
     preconditions:
       - sh: test -n "{{.TYPE}}"
         msg: "TYPE is required. Use patch, minor, major, or an exact semver version."
@@ -99,7 +96,7 @@ tasks:
       - task: version:bump
         vars: { TYPE: "{{.TYPE}}" }
       - git add npm/package.json
-      - 'git commit -m "chore: release v{{.RELEASE_VERSION}}"'
+      - 'node -e "const { execFileSync } = require(''node:child_process''); const version = require(''./npm/package.json'').version; execFileSync(''git'', [''commit'', ''-m'', ''chore: release v'' + version], { stdio: ''inherit'' });"'
 
   release:patch:
     desc: "Verify, bump the patch version, and create a release commit"

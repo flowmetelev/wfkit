@@ -33,6 +33,14 @@ func CreateGlobalFiles(opts config.Options) error {
 			output:   filepath.Join("src", "utils", "dom.ts"),
 		},
 		{
+			template: "webflow-utils.ts.tmpl",
+			output:   filepath.Join("src", "utils", "webflow.ts"),
+		},
+		{
+			template: "site-status-feature.ts.tmpl",
+			output:   filepath.Join("src", "features", "site-status.ts"),
+		},
+		{
 			template: "webflow-vite-plugin.js.tmpl",
 			output:   filepath.Join("build", "webflow-vite-plugin.js"),
 		},
@@ -55,17 +63,15 @@ func CreateGlobalFiles(opts config.Options) error {
 		}
 	}
 
-	if opts.Types {
-		typeData := struct {
-			GlobalVar         string
-			GlobalEntryImport string
-		}{
-			GlobalVar:         opts.GlobalVar,
-			GlobalEntryImport: globalEntryImportPath(opts.GlobalEntry),
-		}
-		if err := utils.RenderTemplateToFile("global.d.ts.tmpl", typeData, "src/global.d.ts"); err != nil {
-			return err
-		}
+	typeData := struct {
+		GlobalVar         string
+		GlobalEntryImport string
+	}{
+		GlobalVar:         opts.GlobalVar,
+		GlobalEntryImport: globalEntryImportPath(opts.GlobalEntry),
+	}
+	if err := utils.RenderTemplateToFile("global.d.ts.tmpl", typeData, "src/global.d.ts"); err != nil {
+		return err
 	}
 
 	return nil

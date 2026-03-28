@@ -1,11 +1,9 @@
-import { $, onReady } from '@/utils/dom'
+import { definePage, mountFeature } from '@/utils/webflow'
 
-onReady(() => {
-  const pageRoot = $('[data-page="home"]')
-  if (!pageRoot) {
-    return
-  }
+definePage('home', pageRoot => {
+  mountFeature('home-root', '[data-wf-home-root]', element => {
+    element.setAttribute('data-page-ready', 'true')
+  }, pageRoot)
 
-  pageRoot.setAttribute('data-page-ready', 'true')
-  console.log('[WF] home page ready')
+  // Mount home-only features here.
 })
