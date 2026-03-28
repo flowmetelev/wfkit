@@ -76,6 +76,7 @@ For contributors:
 - contributors should usually open PRs with feature or fix commits only
 - maintainers should cut the release commit when it's time to publish
 - keep the version bump separate from product changes
+- do not push directly to `main`; push a branch and open a pull request instead
 
 ## Keep pull requests easy to review
 
