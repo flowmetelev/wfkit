@@ -34,48 +34,7 @@ type doctorCheck struct {
 }
 
 func doctorMode(c *cli.Context) error {
-	cfg, err := config.ReadConfig()
-	if err != nil {
-		return fmt.Errorf("failed to read config: %w", err)
-	}
-
-	checks := runDoctor(c.Context, cfg, c.Bool("skip-auth"))
-	printDoctorReport(checks)
-
-	for _, check := range checks {
-		if check.Status == doctorFail {
-			return fmt.Errorf("doctor found blocking issues")
-		}
-	}
-
-	return nil
-}
-
-func runDoctor(ctx context.Context, cfg config.Config, skipAuth bool) []doctorCheck {
-	var checks []doctorCheck
-
-	checks = append(checks, checkFileExists("Project config", "wfkit.json"))
-	checks = append(checks, checkFileExists("Package file", "package.json"))
-	checks = append(checks, checkConfigValues(cfg))
-	checks = append(checks, checkCommandAvailable("Package manager", cfg.PackageManager))
-	checks = append(checks, checkCommandAvailable("Git", "git"))
-	checks = append(checks, checkDevScript())
-	checks = append(checks, checkBuildDirectory(cfg.BuildDir))
-	checks = append(checks, checkPortStatus("Proxy port", cfg.ProxyHost, cfg.ProxyPort))
-	checks = append(checks, checkDevServerStatus(cfg))
-
-	if skipAuth {
-		checks = append(checks, doctorCheck{
-			Category: "runtime",
-			Name:     "Webflow auth",
-			Status:   doctorWarn,
-			Message:  "skipped by flag",
-		})
-		return checks
-	}
-
-	checks = append(checks, checkWebflowAuth(ctx, cfg))
-	return checks
+	return newDoctorFlow(c.Context, c.Bool("skip-auth")).run()
 }
 
 func printDoctorReport(checks []doctorCheck) {
