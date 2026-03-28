@@ -69,6 +69,29 @@ func DetectGitHubRepositoryStatus() (GitHubRepositoryStatus, error) {
 	return status, nil
 }
 
+func InitializeLocalRepository(defaultBranch string) error {
+	if _, err := exec.LookPath("git"); err != nil {
+		return fmt.Errorf("git is not installed")
+	}
+	if strings.TrimSpace(defaultBranch) == "" {
+		defaultBranch = "main"
+	}
+
+	cmd := exec.Command("git", "init")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("git init failed: %v\n%s", err, output)
+	}
+
+	cmd = exec.Command("git", "branch", "-M", defaultBranch)
+	output, err = cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("git branch -M %s failed: %v\n%s", defaultBranch, err, output)
+	}
+
+	return nil
+}
+
 func isGitHubRemoteURL(rawURL string) bool {
 	value := strings.ToLower(strings.TrimSpace(rawURL))
 	if value == "" {

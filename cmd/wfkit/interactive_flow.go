@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+
 	"wfkit/internal/updater"
 	"wfkit/internal/utils"
 
@@ -31,12 +33,18 @@ func (f *interactiveFlow) run() error {
 func (f *interactiveFlow) printHeader() {
 	version := f.cliContext.App.Version
 	utils.PrintAppHeader(version, "Build Webflow scripts locally, proxy safely, and publish with confidence.")
+
+	utils.PrintSection("Quick Start")
+	for _, item := range interactiveQuickStartItems() {
+		utils.PrintStatus("READY", item.title, item.description)
+	}
+	fmt.Println()
+
 	if updateManager := updater.NewUpdateManager(version); updateManager != nil {
 		if result, err := updateManager.Check(updater.CheckOptions{AllowStale: true}); err == nil && result.Available {
 			utils.PrintUpdateBanner(version, result.LatestVersion)
 		}
 	}
-	utils.PrintActionCards(interactiveActionCards()...)
 }
 
 func (f *interactiveFlow) selectAction() error {
@@ -81,38 +89,40 @@ func (f *interactiveFlow) dispatch() error {
 	}
 }
 
-func interactiveActionCards() []utils.ActionCard {
-	return []utils.ActionCard{
+type interactiveQuickStartItem struct {
+	title       string
+	description string
+}
+
+func interactiveQuickStartItems() []interactiveQuickStartItem {
+	return []interactiveQuickStartItem{
 		{
-			Title:       "Initialize",
-			Description: "Scaffold a new Webflow-ready Vite project with pages, globals, and config.",
-			Command:     "wfkit init",
+			title:       "Initialize",
+			description: "Scaffold a Webflow-ready Vite project with pages, globals, and config.",
 		},
 		{
-			Title:       "Develop",
-			Description: "Proxy the live site locally and inject your dev entry without touching production.",
-			Command:     "wfkit proxy",
+			title:       "Develop",
+			description: "Proxy the live site locally and inject your dev entry without touching production.",
 		},
 		{
-			Title:       "Docs Hub",
-			Description: "Render markdown and publish a dedicated documentation page inside Webflow.",
-			Command:     "wfkit docs",
+			title:       "Docs",
+			description: "Render markdown and publish a dedicated documentation page inside Webflow.",
 		},
 	}
 }
 
 func interactiveActionOptions() []huh.Option[string] {
 	return []huh.Option[string]{
-		huh.NewOption("🚀 Initialize a new project", "init"),
-		huh.NewOption("📚 Publish docs hub", "docs"),
-		huh.NewOption("🧬 Migrate page code from Webflow", "migrate"),
-		huh.NewOption("📡 Publish code to Webflow (Prod)", "publish_prod"),
-		huh.NewOption("🛠️ Start Dev Proxy", "proxy_dev"),
-		huh.NewOption("🩺 Run Doctor", "doctor"),
-		huh.NewOption("⚙️  Configure CLI defaults", "config"),
-		huh.NewOption("🔄 Check for updates", "update"),
-		huh.NewOption("🐛 Report a bug", "report_bug"),
-		huh.NewOption("💡 Request a feature", "request_feature"),
-		huh.NewOption("❌ Exit", "exit"),
+		huh.NewOption("Initialize a project", "init"),
+		huh.NewOption("Publish docs", "docs"),
+		huh.NewOption("Migrate page code", "migrate"),
+		huh.NewOption("Publish code to Webflow (prod)", "publish_prod"),
+		huh.NewOption("Start dev proxy", "proxy_dev"),
+		huh.NewOption("Run doctor", "doctor"),
+		huh.NewOption("Configure CLI defaults", "config"),
+		huh.NewOption("Check for updates", "update"),
+		huh.NewOption("Report a bug", "report_bug"),
+		huh.NewOption("Request a feature", "request_feature"),
+		huh.NewOption("Exit", "exit"),
 	}
 }
