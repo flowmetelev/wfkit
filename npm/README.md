@@ -22,6 +22,12 @@ npm install -g @flowmetelev/wfkit
 
 If your package manager blocks `postinstall` scripts, the `wfkit` launcher will download the native binary automatically on first run.
 
+If you are developing `wfkit` itself and need a generated project to use your local unreleased binary instead of the latest published release, set `WFKIT_BINARY_PATH` before running package scripts:
+
+```bash
+WFKIT_BINARY_PATH=/absolute/path/to/bin/wfkit bun run dev
+```
+
 ## Quick start
 
 Create a project:

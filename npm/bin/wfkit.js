@@ -9,8 +9,26 @@ const platform = process.platform;
 const binaryName = platform === "win32" ? "wfkit.exe" : "wfkit";
 const binaryPath = join(__dirname, binaryName);
 
+function resolveBinaryPath() {
+  const overridePath = process.env.WFKIT_BINARY_PATH;
+  if (!overridePath) {
+    return binaryPath;
+  }
+
+  return overridePath;
+}
+
 async function main() {
-  if (!existsSync(binaryPath)) {
+  const resolvedBinaryPath = resolveBinaryPath();
+
+  if (process.env.WFKIT_BINARY_PATH && !existsSync(resolvedBinaryPath)) {
+    console.error(
+      `WFKIT_BINARY_PATH points to a missing binary: ${resolvedBinaryPath}`,
+    );
+    process.exit(1);
+  }
+
+  if (!process.env.WFKIT_BINARY_PATH && !existsSync(resolvedBinaryPath)) {
     console.warn("wfkit binary is missing. Attempting to download it now.");
 
     try {
@@ -23,7 +41,7 @@ async function main() {
     }
   }
 
-  const result = spawnSync(binaryPath, process.argv.slice(2), {
+  const result = spawnSync(resolvedBinaryPath, process.argv.slice(2), {
     stdio: "inherit",
   });
 
@@ -35,4 +53,11 @@ async function main() {
   process.exit(result.status === null ? 1 : result.status);
 }
 
-main();
+module.exports = {
+  binaryPath,
+  resolveBinaryPath,
+};
+
+if (require.main === module) {
+  main();
+}
