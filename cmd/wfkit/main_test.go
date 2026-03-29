@@ -14,21 +14,30 @@ import (
 
 func TestInteractiveActionOptionsIncludePagesManagement(t *testing.T) {
 	options := interactiveActionOptions()
+	foundPages := false
 	foundCMS := false
 	for _, option := range options {
 		if option.Key == "Manage pages" && option.Value == "pages" {
-			foundCMS = true
+			foundPages = true
 		}
 		if option.Key == "Manage CMS" && option.Value == "cms" {
-			return
+			foundCMS = true
 		}
 	}
 
-	if !foundCMS {
+	if !foundPages {
 		t.Fatal("expected interactive action options to include Manage pages")
 	}
+	if !foundCMS {
+		t.Fatal("expected interactive action options to include Manage CMS")
+	}
+}
 
-	t.Fatal("expected interactive action options to include Manage CMS")
+func TestCompactUpdateMessageIncludesVersions(t *testing.T) {
+	got := compactUpdateMessage("1.6.0", "1.7.0")
+	if got != "current v1.6.0  latest v1.7.0  Run `wfkit update` when ready." {
+		t.Fatalf("unexpected compact update message: %q", got)
+	}
 }
 
 func TestPreferredDevScriptPrefersDedicatedViteScript(t *testing.T) {

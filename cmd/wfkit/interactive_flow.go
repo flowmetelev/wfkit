@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
+	"wfkit/internal/config"
 	"wfkit/internal/updater"
 	"wfkit/internal/utils"
 
@@ -42,25 +44,47 @@ func (f *interactiveFlow) run() error {
 func (f *interactiveFlow) printHeader() {
 	version := f.cliContext.App.Version
 	utils.PrintAppHeader(version, "Build Webflow scripts locally, proxy safely, and publish with confidence.")
-
-	utils.PrintSection("Quick Start")
-	for _, item := range interactiveQuickStartItems() {
-		utils.PrintStatus("READY", item.title, item.description)
-	}
-	fmt.Println()
+	f.printProjectSummary()
 
 	if updateManager := updater.NewUpdateManager(version); updateManager != nil {
 		if result, err := updateManager.Check(updater.CheckOptions{AllowStale: true}); err == nil && result.Available {
-			utils.PrintUpdateBanner(version, result.LatestVersion)
+			f.printUpdateNotice(version, result.LatestVersion)
 		}
 	}
+}
+
+func (f *interactiveFlow) printProjectSummary() {
+	cfg, err := config.ReadConfig()
+	if err != nil {
+		utils.PrintSection("Project")
+		utils.PrintStatus("WARN", "Config", err.Error())
+		fmt.Println()
+		return
+	}
+
+	utils.PrintSection("Project")
+	utils.PrintStatus("INFO", displayValue(cfg.AppName), displayValue(cfg.EffectiveSiteURL()))
+	utils.PrintSummary(
+		utils.SummaryMetric{Label: "pkg", Value: displayValue(cfg.PackageManager), Tone: "info"},
+		utils.SummaryMetric{Label: "delivery", Value: displayValue(cfg.DeliveryMode), Tone: "info"},
+		utils.SummaryMetric{Label: "assets", Value: displayValue(cfg.AssetBranch), Tone: "info"},
+		utils.SummaryMetric{Label: "docs", Value: displayValue(cfg.DocsPageSlug), Tone: "info"},
+	)
+	utils.PrintStatus("INFO", "Build", displayValue(cfg.BuildDir))
+	fmt.Println()
+}
+
+func (f *interactiveFlow) printUpdateNotice(currentVersion, latestVersion string) {
+	utils.PrintStatus("WARN", fmt.Sprintf("Update available: v%s", latestVersion), compactUpdateMessage(currentVersion, latestVersion))
+	fmt.Println()
 }
 
 func (f *interactiveFlow) selectAction() error {
 	return huh.NewForm(
 		huh.NewGroup(
 			huh.NewSelect[string]().
-				Title("What would you like to do?").
+				Title("Actions").
+				Description("Type to filter. Enter selects. Esc or Ctrl+C exits.").
 				Options(interactiveActionOptions()...).
 				Value(&f.action),
 		),
@@ -98,42 +122,34 @@ func (f *interactiveFlow) dispatch() error {
 	}
 }
 
-type interactiveQuickStartItem struct {
-	title       string
-	description string
-}
-
-func interactiveQuickStartItems() []interactiveQuickStartItem {
-	return []interactiveQuickStartItem{
-		{
-			title:       "Initialize",
-			description: "Scaffold a Webflow-ready Vite project with pages, globals, and config.",
-		},
-		{
-			title:       "Develop",
-			description: "Proxy the live site locally and inject your dev entry without touching production.",
-		},
-		{
-			title:       "Docs",
-			description: "Render markdown and publish a dedicated documentation page inside Webflow.",
-		},
-	}
-}
-
 func interactiveActionOptions() []huh.Option[string] {
 	return []huh.Option[string]{
-		huh.NewOption("Initialize a project", "init"),
+		huh.NewOption("Proxy local site", "proxy_dev"),
+		huh.NewOption("Publish code", "publish"),
 		huh.NewOption("Publish docs", "docs"),
+		huh.NewOption("Migrate code", "migrate"),
 		huh.NewOption("Manage pages", "pages"),
 		huh.NewOption("Manage CMS", "cms"),
-		huh.NewOption("Migrate page code", "migrate"),
-		huh.NewOption("Publish code to Webflow", "publish"),
-		huh.NewOption("Start dev proxy", "proxy_dev"),
 		huh.NewOption("Run doctor", "doctor"),
+		huh.NewOption("Initialize project", "init"),
 		huh.NewOption("Configure CLI defaults", "config"),
 		huh.NewOption("Check for updates", "update"),
 		huh.NewOption("Report a bug", "report_bug"),
 		huh.NewOption("Request a feature", "request_feature"),
 		huh.NewOption("Exit", "exit"),
 	}
+}
+
+func compactUpdateMessage(currentVersion, latestVersion string) string {
+	parts := make([]string, 0, 2)
+	if strings.TrimSpace(currentVersion) != "" {
+		parts = append(parts, "current v"+currentVersion)
+	}
+	if strings.TrimSpace(latestVersion) != "" {
+		parts = append(parts, "latest v"+latestVersion)
+	}
+	if len(parts) == 0 {
+		return "Run `wfkit update` when ready."
+	}
+	return strings.Join(parts, "  ") + "  Run `wfkit update` when ready."
 }
