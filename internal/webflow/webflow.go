@@ -270,6 +270,33 @@ func doPut(ctx context.Context, url, cookies, token string, body interface{}) (*
 	return resp, nil
 }
 
+func doPatch(ctx context.Context, url, cookies, token string, body interface{}) (*http.Response, error) {
+	jsonBody, err := json.Marshal(body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request body: %w", err)
+	}
+	req, err := http.NewRequestWithContext(ctx, "PATCH", url, bytes.NewBuffer(jsonBody))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create PATCH request: %w", err)
+	}
+	setupRequestHeaders(req, cookies)
+	req.Header.Set("x-xsrf-token", token)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute PATCH request: %w", err)
+	}
+
+	if resp.StatusCode >= 400 {
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		return nil, parseAPIError("PATCH", resp.StatusCode, body)
+	}
+
+	return resp, nil
+}
+
 func setupRequestHeaders(req *http.Request, cookies string) {
 	req.Header.Set("Cookie", cookies)
 	req.Header.Set("User-Agent", userAgent)

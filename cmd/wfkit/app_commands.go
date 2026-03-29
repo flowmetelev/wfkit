@@ -6,6 +6,7 @@ func buildCommands() []*cli.Command {
 	return []*cli.Command{
 		buildInitCommand(),
 		buildPagesCommand(),
+		buildCMSCommand(),
 		buildDocsCommand(),
 		buildMigrateCommand(),
 		buildPublishCommand(),
@@ -14,6 +15,56 @@ func buildCommands() []*cli.Command {
 		buildFeatureRequestCommand(),
 		buildDoctorCommand(),
 		buildUpdateCommand(),
+	}
+}
+
+func buildCMSCommand() *cli.Command {
+	return &cli.Command{
+		Name:  "cms",
+		Usage: "Inspect and sync Webflow CMS collections as local JSON files",
+		Subcommands: []*cli.Command{
+			{
+				Name:   "collections",
+				Usage:  "List CMS collections for the current Webflow site",
+				Flags:  []cli.Flag{&cli.BoolFlag{Name: "json", Usage: "Print collections as JSON"}},
+				Action: cmsCollectionsMode,
+			},
+			{
+				Name:  "pull",
+				Usage: "Pull Webflow CMS collections and items into local JSON files",
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "dir", Value: "webflow/cms", Usage: "Output directory for pulled CMS JSON files"},
+					&cli.StringFlag{Name: "collection", Usage: "Optional collection slug or id to pull"},
+					&cli.StringFlag{Name: "target", Value: "staging", Usage: "Content target for CMS items: staging or production"},
+					&cli.BoolFlag{Name: "json", Usage: "Print the pull summary as JSON"},
+				},
+				Action: cmsPullMode,
+			},
+			{
+				Name:  "diff",
+				Usage: "Compare local CMS JSON files against the current Webflow CMS state",
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "dir", Value: "webflow/cms", Usage: "Directory containing pulled CMS JSON files"},
+					&cli.StringFlag{Name: "collection", Usage: "Optional collection slug or id to diff"},
+					&cli.StringFlag{Name: "target", Value: "staging", Usage: "Content target for remote CMS items: staging or production"},
+					&cli.BoolFlag{Name: "delete-missing", Usage: "Include remote items that are missing from local JSON as delete candidates"},
+					&cli.BoolFlag{Name: "json", Usage: "Print the sync plan as JSON"},
+				},
+				Action: cmsDiffMode,
+			},
+			{
+				Name:  "push",
+				Usage: "Apply local CMS JSON changes back to Webflow",
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "dir", Value: "webflow/cms", Usage: "Directory containing pulled CMS JSON files"},
+					&cli.StringFlag{Name: "collection", Usage: "Optional collection slug or id to push"},
+					&cli.StringFlag{Name: "target", Value: "staging", Usage: "Content target for remote CMS items used when planning the sync"},
+					&cli.BoolFlag{Name: "delete-missing", Usage: "Delete remote items that are missing from local JSON"},
+					&cli.BoolFlag{Name: "json", Usage: "Print the applied sync summary as JSON"},
+				},
+				Action: cmsPushMode,
+			},
+		},
 	}
 }
 

@@ -429,6 +429,39 @@ Subcommands:
 - `wfkit pages open --slug docs` Open the published Webflow page in your browser
 - `wfkit pages types` Generate `src/generated/wfkit-pages.ts` from the current Webflow pages
 
+### `wfkit cms`
+
+Inspect Webflow CMS collections and sync them as local JSON files for versioned review.
+
+Subcommands:
+
+- `wfkit cms collections` List CMS collections for the current site
+- `wfkit cms pull` Pull all CMS collections into `webflow/cms`
+- `wfkit cms pull --collection blog-posts` Pull one collection by slug or id
+- `wfkit cms pull --dir webflow/cms --target production` Pull the production item view instead of staging
+- `wfkit cms diff` Compare local CMS JSON against the current Webflow state
+- `wfkit cms push` Apply local CMS JSON changes back to Webflow
+- `wfkit cms push --delete-missing` Delete remote items that no longer exist in local JSON
+
+`wfkit cms pull` writes:
+
+- `webflow/cms/database.json` database metadata for the current site
+- `webflow/cms/<collection-slug>/schema.json` collection schema and field definitions
+- `webflow/cms/<collection-slug>/items/*.json` one file per CMS item
+
+Recommended workflow:
+
+1. `wfkit cms pull`
+2. edit the JSON files you want to change
+3. `wfkit cms diff`
+4. `wfkit cms push`
+
+`wfkit cms push` is safe by default:
+
+- it creates new items that exist locally but not in Webflow
+- it updates existing items when local JSON changed
+- it does not delete remote items unless you pass `--delete-missing`
+
 ### `wfkit migrate`
 
 Migrate inline Webflow custom code into local source files.

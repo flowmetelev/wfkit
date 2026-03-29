@@ -14,13 +14,21 @@ import (
 
 func TestInteractiveActionOptionsIncludePagesManagement(t *testing.T) {
 	options := interactiveActionOptions()
+	foundCMS := false
 	for _, option := range options {
 		if option.Key == "Manage pages" && option.Value == "pages" {
+			foundCMS = true
+		}
+		if option.Key == "Manage CMS" && option.Value == "cms" {
 			return
 		}
 	}
 
-	t.Fatal("expected interactive action options to include Manage pages")
+	if !foundCMS {
+		t.Fatal("expected interactive action options to include Manage pages")
+	}
+
+	t.Fatal("expected interactive action options to include Manage CMS")
 }
 
 func TestPreferredDevScriptPrefersDedicatedViteScript(t *testing.T) {
