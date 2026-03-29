@@ -13,22 +13,70 @@ import (
 )
 
 func TestInteractiveActionOptionsIncludePagesManagement(t *testing.T) {
-	options := interactiveActionOptions()
+	options := interactiveActionOptions("content")
+	foundPages := false
 	foundCMS := false
 	for _, option := range options {
 		if option.Key == "Manage pages" && option.Value == "pages" {
-			foundCMS = true
+			foundPages = true
 		}
 		if option.Key == "Manage CMS" && option.Value == "cms" {
-			return
+			foundCMS = true
 		}
 	}
 
-	if !foundCMS {
+	if !foundPages {
 		t.Fatal("expected interactive action options to include Manage pages")
 	}
+	if !foundCMS {
+		t.Fatal("expected interactive action options to include Manage CMS")
+	}
+}
 
-	t.Fatal("expected interactive action options to include Manage CMS")
+func TestInteractiveCategoryOptionsIncludeContentAndSupport(t *testing.T) {
+	options := interactiveCategoryOptions()
+	foundContent := false
+	foundUpdate := false
+	for _, option := range options {
+		if option.Key == "Content" && option.Value == "content" {
+			foundContent = true
+		}
+		if option.Key == "Check for updates" && option.Value == "update" {
+			foundUpdate = true
+		}
+	}
+	if !foundContent || !foundUpdate {
+		t.Fatalf("unexpected category options: %#v", options)
+	}
+}
+
+func TestCategoryActionTreatsLeafCategoriesAsDirectActions(t *testing.T) {
+	tests := map[string]string{
+		"update":          "update",
+		"request_feature": "request_feature",
+		"report_bug":      "report_bug",
+	}
+
+	for category, want := range tests {
+		got, ok := categoryAction(category)
+		if !ok {
+			t.Fatalf("expected %q to be a direct action category", category)
+		}
+		if got != want {
+			t.Fatalf("expected %q action for %q, got %q", want, category, got)
+		}
+	}
+
+	if _, ok := categoryAction("develop"); ok {
+		t.Fatal("did not expect develop to be treated as a direct action category")
+	}
+}
+
+func TestCompactUpdateMessageIncludesVersions(t *testing.T) {
+	got := compactUpdateMessage("1.6.0", "1.7.0")
+	if got != "current v1.6.0  latest v1.7.0  Run `wfkit update` when ready." {
+		t.Fatalf("unexpected compact update message: %q", got)
+	}
 }
 
 func TestPreferredDevScriptPrefersDedicatedViteScript(t *testing.T) {

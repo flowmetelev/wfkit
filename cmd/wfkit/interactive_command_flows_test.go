@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"strings"
 	"testing"
 
 	"github.com/urfave/cli/v2"
@@ -111,5 +112,31 @@ func TestInteractiveDoctorFlowBuildsContext(t *testing.T) {
 	ctx := flow.newContext()
 	if !ctx.Bool("skip-auth") {
 		t.Fatal("expected skip-auth to be set")
+	}
+}
+
+func TestInteractiveSupportFlowMetadata(t *testing.T) {
+	parent := cli.NewContext(&cli.App{Version: "1.6.0"}, flag.NewFlagSet("wfkit", flag.ContinueOnError), nil)
+
+	title, description, target := newInteractiveSupportFlow(parent, "request_feature").metadata()
+	if title != "Request a feature" {
+		t.Fatalf("unexpected feature title: %q", title)
+	}
+	if !strings.Contains(description, "feature request form") {
+		t.Fatalf("unexpected feature description: %q", description)
+	}
+	if !strings.Contains(target, "template=feature_request.yml") {
+		t.Fatalf("unexpected feature target: %q", target)
+	}
+
+	title, description, target = newInteractiveSupportFlow(parent, "report_bug").metadata()
+	if title != "Report a bug" {
+		t.Fatalf("unexpected bug title: %q", title)
+	}
+	if !strings.Contains(description, "bug report form") {
+		t.Fatalf("unexpected bug description: %q", description)
+	}
+	if !strings.Contains(target, "template=bug_report.yml") {
+		t.Fatalf("unexpected bug target: %q", target)
 	}
 }

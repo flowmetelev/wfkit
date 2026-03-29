@@ -1,6 +1,6 @@
 {
     "name": "@flowmetelev/wfkit",
-    "version": "1.6.0",
+    "version": "1.7.0",
     "description": "A powerful CLI utility for securely publishing Webflow projects with live development support.",
     "main": "install.js",
     "bin": {

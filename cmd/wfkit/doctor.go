@@ -60,6 +60,8 @@ func printDoctorReport(checks []doctorCheck) {
 		utils.PrintStatus(string(check.Status), check.Name, check.Message)
 	}
 
+	utils.PrintSection("Summary")
+	utils.PrintStatus(overallDoctorStatus(warnCount, failCount), "Overall", overallDoctorMessage(warnCount, failCount))
 	utils.PrintSummary(
 		utils.SummaryMetric{Label: "Passed", Value: fmt.Sprintf("%d", passCount), Tone: "success"},
 		utils.SummaryMetric{Label: "Warnings", Value: fmt.Sprintf("%d", warnCount), Tone: "warning"},
@@ -134,6 +136,28 @@ func doctorDashboardCards(checks []doctorCheck) []utils.DashboardCard {
 	}
 
 	return cards
+}
+
+func overallDoctorStatus(warnCount, failCount int) string {
+	switch {
+	case failCount > 0:
+		return "FAIL"
+	case warnCount > 0:
+		return "WARN"
+	default:
+		return "OK"
+	}
+}
+
+func overallDoctorMessage(warnCount, failCount int) string {
+	switch {
+	case failCount > 0:
+		return "Resolve blocking issues before relying on this setup."
+	case warnCount > 0:
+		return "Core setup works, but a few things are still worth checking."
+	default:
+		return "Everything looks ready."
+	}
 }
 
 func checkFileExists(name, path string) doctorCheck {

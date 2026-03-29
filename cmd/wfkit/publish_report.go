@@ -13,10 +13,8 @@ func printGlobalPublishPlan(plan publish.GlobalPublishPlan) {
 		statusText = "UPDATE"
 	}
 
-	utils.PrintSection("Global Publish Plan")
-	utils.PrintStatus(statusText, "Global bundle", "")
-	utils.PrintKeyValue("Current", displayValue(plan.CurrentSrc))
-	utils.PrintKeyValue("Next", displayValue(plan.NextSrc))
+	utils.PrintSection("Global Publish")
+	utils.PrintStatus(statusText, "Bundle", fmt.Sprintf("current %s  next %s", displayValue(plan.CurrentSrc), displayValue(plan.NextSrc)))
 	fmt.Println()
 }
 
@@ -25,7 +23,7 @@ func printByPagePlan(plan publish.ByPagePlan) {
 		printGlobalPublishPlan(plan.Global)
 	}
 
-	utils.PrintSection("Page Publish Plan")
+	utils.PrintSection("Page Publish")
 	updateCount := 0
 	warnCount := 0
 

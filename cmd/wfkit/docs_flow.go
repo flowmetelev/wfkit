@@ -83,9 +83,9 @@ func (f *docsFlow) loadConfig() error {
 
 func (f *docsFlow) printHeader() {
 	utils.PrintSection("Docs Hub")
-	utils.PrintKeyValue("Webflow", f.baseURL)
-	utils.PrintKeyValue("Markdown", f.options.EntryPath)
-	utils.PrintKeyValue("Page slug", f.options.PageSlug)
+	utils.PrintKeyValue("Site", f.baseURL)
+	utils.PrintKeyValue("Entry", f.options.EntryPath)
+	utils.PrintKeyValue("Page", f.options.PageSlug)
 	fmt.Println()
 }
 

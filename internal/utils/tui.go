@@ -53,10 +53,9 @@ var (
 			Foreground(lipgloss.Color("#94A3B8"))
 	uiSectionStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color("#CFFAFE")).
-			BorderStyle(lipgloss.NormalBorder()).
-			BorderForeground(lipgloss.Color("#155E75")).
-			Padding(0, 1)
+			Foreground(lipgloss.Color("#CFFAFE"))
+	uiSectionDividerStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#155E75"))
 	uiLabelStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#94A3B8")).
 			Width(10)
@@ -78,14 +77,6 @@ var (
 				Foreground(lipgloss.Color("#F8FAFC"))
 	uiCardCommandStyle = lipgloss.NewStyle().
 				Foreground(lipgloss.Color("#67E8F9"))
-	uiSuccessBoxStyle = lipgloss.NewStyle().
-				BorderStyle(lipgloss.RoundedBorder()).
-				BorderForeground(lipgloss.Color("#15803D")).
-				Padding(1, 2)
-	uiErrorBoxStyle = lipgloss.NewStyle().
-			BorderStyle(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("#B91C1C")).
-			Padding(1, 2)
 	uiTimelineLabelStyle = lipgloss.NewStyle().
 				Foreground(lipgloss.Color("#E2E8F0")).
 				Bold(true)
@@ -108,7 +99,16 @@ func ClearScreen() {
 }
 
 func PrintSection(title string) {
+	title = strings.TrimSpace(title)
+	if title == "" {
+		return
+	}
+	width := utf8.RuneCountInString(title) + 2
+	if width < 12 {
+		width = 12
+	}
 	fmt.Println(uiSectionStyle.Render(title))
+	fmt.Println(uiSectionDividerStyle.Render(strings.Repeat("─", width)))
 }
 
 func PrintKeyValue(label, value string) {
@@ -190,47 +190,39 @@ func PrintDashboardCards(cards ...DashboardCard) {
 		return
 	}
 
-	rendered := make([]string, 0, len(cards))
 	for _, card := range cards {
-		cardStyle := uiCardStyle.Copy().Height(8)
+		status := "INFO"
 		switch strings.ToLower(strings.TrimSpace(card.Tone)) {
 		case "success":
-			cardStyle = cardStyle.BorderForeground(lipgloss.Color("#15803D"))
+			status = "OK"
 		case "warning":
-			cardStyle = cardStyle.BorderForeground(lipgloss.Color("#B45309"))
+			status = "WARN"
 		case "danger":
-			cardStyle = cardStyle.BorderForeground(lipgloss.Color("#B91C1C"))
-		default:
-			cardStyle = cardStyle.BorderForeground(lipgloss.Color("#2563EB"))
+			status = "FAIL"
 		}
-
-		body := []string{uiCardTitleStyle.Render(card.Title)}
-		if len(card.Metrics) > 0 {
-			parts := make([]string, 0, len(card.Metrics))
-			for _, metric := range card.Metrics {
-				if metric.Label == "" || metric.Value == "" {
-					continue
-				}
-				tone := metric.Tone
-				if tone == "" {
-					tone = card.Tone
-				}
-				parts = append(parts, toneBadge(tone).Render(metric.Value)+" "+uiMutedStyle.Render(metric.Label))
+		parts := make([]string, 0, len(card.Metrics))
+		for _, metric := range card.Metrics {
+			if metric.Label == "" || metric.Value == "" {
+				continue
 			}
-			if len(parts) > 0 {
-				body = append(body, "", lipgloss.JoinHorizontal(lipgloss.Top, parts...))
+			tone := metric.Tone
+			if tone == "" {
+				tone = card.Tone
 			}
+			parts = append(parts, toneBadge(tone).Render(metric.Value)+" "+uiMutedStyle.Render(metric.Label))
 		}
+		message := strings.Join(parts, "  ")
 		for _, line := range card.Lines {
 			if strings.TrimSpace(line) == "" {
 				continue
 			}
-			body = append(body, uiMutedStyle.Render(line))
+			if message != "" {
+				message += "  "
+			}
+			message += line
 		}
-		rendered = append(rendered, cardStyle.Render(strings.Join(body, "\n")))
+		PrintStatus(status, card.Title, message)
 	}
-
-	fmt.Println(lipgloss.JoinHorizontal(lipgloss.Top, rendered...))
 	fmt.Println()
 }
 
@@ -253,54 +245,35 @@ func PrintTimeline(title string, steps ...TimelineStep) {
 }
 
 func PrintSuccessScreen(title, subtitle string, metrics []SummaryMetric, commands ...string) {
-	lines := []string{uiTitleStyle.Render(title)}
+	PrintSection(title)
 	if strings.TrimSpace(subtitle) != "" {
-		lines = append(lines, uiMutedStyle.Render(subtitle))
+		fmt.Println(uiMutedStyle.Render(subtitle))
 	}
 	if len(metrics) > 0 {
-		parts := make([]string, 0, len(metrics))
-		for _, metric := range metrics {
-			if metric.Label == "" || metric.Value == "" {
-				continue
-			}
-			tone := metric.Tone
-			if tone == "" {
-				tone = "success"
-			}
-			parts = append(parts, toneBadge(tone).Render(metric.Value)+" "+uiMutedStyle.Render(metric.Label))
-		}
-		if len(parts) > 0 {
-			lines = append(lines, "", lipgloss.JoinHorizontal(lipgloss.Top, parts...))
-		}
+		PrintSummary(metrics...)
 	}
 	if len(commands) > 0 {
-		lines = append(lines, "", uiMutedStyle.Render("Next steps"))
-		for _, command := range commands {
-			if strings.TrimSpace(command) == "" {
-				continue
-			}
-			lines = append(lines, "  "+uiCommandStyle.Render(command))
-		}
+		fmt.Println()
+		fmt.Println(uiMutedStyle.Render("Next steps"))
+		PrintCommandHints(commands...)
 	}
-
-	fmt.Println(uiSuccessBoxStyle.Render(strings.Join(lines, "\n")))
 	fmt.Println()
 }
 
 func PrintErrorScreen(title string, err error, hints ...string) {
-	lines := []string{uiTitleStyle.Render(title)}
+	PrintSection(title)
 	if err != nil {
 		wrapped := wrapErrorMessage(err.Error(), 88)
 		if len(wrapped) > 0 {
-			lines = append(lines, "")
-			lines = append(lines, toneBadge("danger").Render("ERROR")+" "+uiMutedStyle.Render(wrapped[0]))
+			fmt.Fprintln(os.Stderr, toneBadge("danger").Render("ERROR")+" "+uiMutedStyle.Render(wrapped[0]))
 			for _, line := range wrapped[1:] {
-				lines = append(lines, "      "+uiMutedStyle.Render(line))
+				fmt.Fprintln(os.Stderr, "      "+uiMutedStyle.Render(line))
 			}
 		}
 	}
 	if len(hints) > 0 {
-		lines = append(lines, "", uiMutedStyle.Render("Next steps"))
+		fmt.Fprintln(os.Stderr)
+		fmt.Fprintln(os.Stderr, uiMutedStyle.Render("Next steps"))
 		for _, hint := range hints {
 			if strings.TrimSpace(hint) == "" {
 				continue
@@ -311,12 +284,10 @@ func PrintErrorScreen(title string, err error, hints ...string) {
 				if i > 0 {
 					prefix = "    "
 				}
-				lines = append(lines, prefix+uiMutedStyle.Render(line))
+				fmt.Fprintln(os.Stderr, prefix+uiMutedStyle.Render(line))
 			}
 		}
 	}
-
-	fmt.Fprintln(os.Stderr, uiErrorBoxStyle.Render(strings.Join(lines, "\n")))
 	fmt.Fprintln(os.Stderr)
 }
 
