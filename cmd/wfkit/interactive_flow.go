@@ -161,6 +161,7 @@ func interactiveActionOptions(category string) []huh.Option[string] {
 	case "develop":
 		return []huh.Option[string]{
 			huh.NewOption("Proxy local site", "proxy_dev"),
+			huh.NewOption("Migrate code", "migrate"),
 			huh.NewOption("Run doctor", "doctor"),
 			huh.NewOption("Back", "back"),
 		}
@@ -168,7 +169,6 @@ func interactiveActionOptions(category string) []huh.Option[string] {
 		return []huh.Option[string]{
 			huh.NewOption("Publish code", "publish"),
 			huh.NewOption("Publish docs", "docs"),
-			huh.NewOption("Migrate code", "migrate"),
 			huh.NewOption("Back", "back"),
 		}
 	case "content":
@@ -186,8 +186,8 @@ func interactiveActionOptions(category string) []huh.Option[string] {
 	case "support":
 		return []huh.Option[string]{
 			huh.NewOption("Check for updates", "update"),
-			huh.NewOption("Report a bug", "report_bug"),
 			huh.NewOption("Request a feature", "request_feature"),
+			huh.NewOption("Report a bug", "report_bug"),
 			huh.NewOption("Back", "back"),
 		}
 	default:
