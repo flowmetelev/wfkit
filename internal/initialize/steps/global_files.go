@@ -37,6 +37,10 @@ func CreateGlobalFiles(opts config.Options) error {
 			output:   filepath.Join("src", "utils", "webflow.ts"),
 		},
 		{
+			template: "generated-pages.ts.tmpl",
+			output:   filepath.Join("src", "generated", "wfkit-pages.ts"),
+		},
+		{
 			template: "site-status-feature.ts.tmpl",
 			output:   filepath.Join("src", "features", "site-status.ts"),
 		},

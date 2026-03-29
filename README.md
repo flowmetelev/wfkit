@@ -115,6 +115,7 @@ How it works:
 - `src/features/*` is for reusable behaviors that can be mounted from global or page entries
 - `src/global/modules/*` contains reusable global behaviors that you choose to import from the global entry
 - `src/pages/*/index.ts` is for per-page code
+- `src/generated/wfkit-pages.ts` contains generated page slug types for `definePage(...)`
 - `src/utils/dom.ts` contains low-level DOM helpers
 - `src/utils/webflow.ts` contains DRY mount helpers that align page and feature bootstrapping with the Webflow runtime
 - `docs/index.md` is the default markdown entry for the docs hub page
@@ -137,6 +138,7 @@ wfkit docs
 ```
 
 By default this targets the Webflow page with slug `docs`.
+If that page does not exist yet, `wfkit docs` now creates it automatically before syncing the managed docs block.
 
 The command injects a managed docs block into that page's custom code and mounts the rendered content into:
 
@@ -167,6 +169,12 @@ Then:
 
 ```bash
 bun run dev
+```
+
+When Webflow pages are added or renamed, refresh typed page names in the scaffold with:
+
+```bash
+bun run pages:types
 ```
 
 This starts:
@@ -407,6 +415,16 @@ Options:
 - `--dry-run` Show what would be changed without updating Webflow
 - `--publish` Publish the site after updating the docs page
 - `--notify` Show a desktop notification and play a sound when finished
+
+### `wfkit pages`
+
+Inspect and manage Webflow pages without opening the Designer.
+
+Subcommands:
+
+- `wfkit pages list` List static Webflow pages
+- `wfkit pages create --name "Docs" --slug docs` Create a static Webflow page
+- `wfkit pages types` Generate `src/generated/wfkit-pages.ts` from the current Webflow pages
 
 ### `wfkit migrate`
 

@@ -1,4 +1,5 @@
 import { $, $$, onReady } from '@/utils/dom'
+import type { WfPage } from '@/generated/wfkit-pages'
 
 type FeatureMount<T extends Element = HTMLElement> = (element: T) => void
 type PageMount<T extends Element = HTMLElement> = (pageRoot: T) => void
@@ -73,7 +74,7 @@ export function mountFeature<T extends Element = HTMLElement>(
 }
 
 export function definePage<T extends Element = HTMLElement>(
-  pageName: string,
+  pageName: WfPage,
   mount: PageMount<T>
 ) {
   onWebflowReady(() => {

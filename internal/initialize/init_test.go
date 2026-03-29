@@ -128,6 +128,9 @@ func TestInitProjectCreatesScaffoldInsideProjectDirectory(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(projectDir, "src", "features", "site-status.ts")); err != nil {
 		t.Fatalf("expected src/features/site-status.ts in project dir: %v", err)
 	}
+	if _, err := os.Stat(filepath.Join(projectDir, "src", "generated", "wfkit-pages.ts")); err != nil {
+		t.Fatalf("expected src/generated/wfkit-pages.ts in project dir: %v", err)
+	}
 	if _, err := os.Stat(filepath.Join(projectDir, "build", "webflow-vite-plugin.js")); err != nil {
 		t.Fatalf("expected build/webflow-vite-plugin.js in project dir: %v", err)
 	}
@@ -175,8 +178,23 @@ func TestInitProjectCreatesScaffoldInsideProjectDirectory(t *testing.T) {
 	if !strings.Contains(string(packageData), `"docs": "wfkit docs"`) {
 		t.Fatalf("expected docs script in package.json, got: %s", string(packageData))
 	}
+	if !strings.Contains(string(packageData), `"pages:types": "wfkit pages types"`) {
+		t.Fatalf("expected pages:types script in package.json, got: %s", string(packageData))
+	}
 	if !strings.Contains(string(packageData), `"typecheck": "tsc --noEmit"`) {
 		t.Fatalf("expected typecheck script in package.json, got: %s", string(packageData))
+	}
+
+	generatedPagesData, err := os.ReadFile(filepath.Join(projectDir, "src", "generated", "wfkit-pages.ts"))
+	if err != nil {
+		t.Fatalf("read generated page types: %v", err)
+	}
+	generatedPagesText := string(generatedPagesData)
+	if !strings.Contains(generatedPagesText, `export type WfPage = (typeof wfPages)[number]`) {
+		t.Fatalf("expected WfPage type in generated pages file, got: %s", generatedPagesText)
+	}
+	if !strings.Contains(generatedPagesText, `'home'`) {
+		t.Fatalf("expected home slug in generated pages file, got: %s", generatedPagesText)
 	}
 
 	readmeData, err := os.ReadFile(filepath.Join(projectDir, "README.md"))

@@ -1,0 +1,15 @@
+export const wfPages = [
+  'home'
+] as const
+
+export type WfPage = (typeof wfPages)[number]
+
+export interface WfPageInfo {
+  slug: WfPage
+  title: string
+  id?: string
+}
+
+export const wfPageInfo: Record<WfPage, WfPageInfo> = {
+  home: { slug: 'home', title: 'Home' }
+}

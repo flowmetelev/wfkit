@@ -5,6 +5,7 @@ import "github.com/urfave/cli/v2"
 func buildCommands() []*cli.Command {
 	return []*cli.Command{
 		buildInitCommand(),
+		buildPagesCommand(),
 		buildDocsCommand(),
 		buildMigrateCommand(),
 		buildPublishCommand(),
@@ -13,6 +14,41 @@ func buildCommands() []*cli.Command {
 		buildFeatureRequestCommand(),
 		buildDoctorCommand(),
 		buildUpdateCommand(),
+	}
+}
+
+func buildPagesCommand() *cli.Command {
+	return &cli.Command{
+		Name:  "pages",
+		Usage: "Inspect, create, and type Webflow pages",
+		Subcommands: []*cli.Command{
+			{
+				Name:   "list",
+				Usage:  "List static Webflow pages for the current site",
+				Flags:  []cli.Flag{&cli.BoolFlag{Name: "json", Usage: "Print pages as JSON"}},
+				Action: pagesListMode,
+			},
+			{
+				Name:  "create",
+				Usage: "Create a new static Webflow page",
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "name", Usage: "Page title to create"},
+					&cli.StringFlag{Name: "slug", Usage: "Page slug (defaults to a slugified title)"},
+					&cli.BoolFlag{Name: "json", Usage: "Print the created page as JSON"},
+					&cli.BoolFlag{Name: "types", Value: true, Usage: "Regenerate local page types after creating the page"},
+					&cli.StringFlag{Name: "output", Value: "src/generated/wfkit-pages.ts", Usage: "Output path for generated page types when --types is enabled"},
+				},
+				Action: pagesCreateMode,
+			},
+			{
+				Name:  "types",
+				Usage: "Generate typed page names from the current Webflow site",
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "output", Value: "src/generated/wfkit-pages.ts", Usage: "Output path for generated page types"},
+				},
+				Action: pagesTypesMode,
+			},
+		},
 	}
 }
 

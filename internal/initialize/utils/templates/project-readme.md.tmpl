@@ -35,6 +35,7 @@ Open `http://localhost:3000` to work against your proxied `.webflow.io` site loc
 - `{{.RunScript}} dev` starts the Webflow proxy and local Vite dev server
 - `{{.RunScript}} build` builds production assets into `dist/assets`
 - `{{.RunScript}} docs` publishes `docs/index.md` to the `{{.DocsPageSlug}}` Webflow page
+- `{{.RunScript}} pages:types` refreshes typed page names from Webflow into `src/generated/wfkit-pages.ts`
 - `{{.RunScript}} publish` builds assets, publishes `dist/assets` to the configured asset branch, and updates Webflow production code
 - `{{.RunScript}} lint` runs ESLint for scaffolded source files
 - `{{.RunScript}} typecheck` runs TypeScript checks
@@ -69,6 +70,8 @@ src/
   pages/
     home/
       index.ts
+  generated/
+    wfkit-pages.ts
   utils/
     dom.ts
     webflow.ts
@@ -85,6 +88,7 @@ Use each area like this:
 - `src/global/index.ts`: export your public helpers and mount shared site-wide modules
 - `src/global/modules/*`: split shared global responsibilities into small modules
 - `src/pages/home/index.ts`: keep page setup thin and focused on that page only
+- `src/generated/wfkit-pages.ts`: generated page slug types used by `definePage`
 - `src/features/*`: build reusable behavior around stable `data-wf-*` selectors
 - `build/webflow-vite-plugin.js`: controls how page and global entries become Webflow-ready bundles
 - `docs/index.md`: the default docs hub entry
@@ -92,10 +96,11 @@ Use each area like this:
 ## Follow this workflow when adding code
 
 1. Add the required `data-wf-*` attributes in Webflow so your code has stable mount points.
-2. Put reusable behavior in `src/features/*`.
-3. Mount that behavior from a page entry or a global module.
-4. Use `{{.RunScript}} dev` to verify the behavior through the local proxy, not by editing Webflow production code directly.
-5. When the behavior is ready, use `{{.RunScript}} publish`.
+2. Run `{{.RunScript}} pages:types` whenever Webflow pages are added or renamed so `definePage(...)` stays typed.
+3. Put reusable behavior in `src/features/*`.
+4. Mount that behavior from a page entry or a global module.
+5. Use `{{.RunScript}} dev` to verify the behavior through the local proxy, not by editing Webflow production code directly.
+6. When the behavior is ready, use `{{.RunScript}} publish`.
 
 ## Keep page files thin and DRY
 
@@ -130,7 +135,7 @@ definePage("home", (pageRoot) => {
 });
 ```
 
-This keeps selectors, DOM behavior, and reuse in one place.
+This keeps selectors, DOM behavior, and reuse in one place. `definePage(...)` is typed from `src/generated/wfkit-pages.ts`, so page slug autocomplete comes from your real Webflow pages after running `{{.RunScript}} pages:types`.
 
 ## Decide where new code belongs
 
