@@ -56,6 +56,16 @@ func resolveAssetBranchFlag(c *cli.Context, fallback string) string {
 	return c.String("asset-branch")
 }
 
+func resolveDeliveryModeFlag(c *cli.Context, fallback string) string {
+	if c.IsSet("delivery") {
+		return c.String("delivery")
+	}
+	if fallback != "" {
+		return fallback
+	}
+	return "cdn"
+}
+
 func resolveIntFlag(c *cli.Context, name string, fallback int) int {
 	if c.IsSet(name) {
 		return c.Int(name)

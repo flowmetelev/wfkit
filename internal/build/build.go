@@ -27,6 +27,19 @@ type GitPushResult struct {
 	Branch    string
 }
 
+func RunProjectBuild(buildDir, pkgMgr string) error {
+	utils.CPrint("Starting build process...", "cyan")
+	if err := validateDir(buildDir); err != nil {
+		return err
+	}
+
+	if _, err := runCmd(pkgMgr, "run", "build"); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // DoBuild выполняет сборку и возвращает URL последнего JS-файла
 func DoBuild(args map[string]interface{}, ghUser, repo, pkgMgr string) (string, error) {
 	buildDir, ok := args[buildDirKey].(string)
@@ -35,12 +48,7 @@ func DoBuild(args map[string]interface{}, ghUser, repo, pkgMgr string) (string, 
 	}
 	scriptUrl, ok := args[scriptUrlKey].(string)
 
-	utils.CPrint("Starting build process...", "cyan")
-	if err := validateDir(buildDir); err != nil {
-		return "", err
-	}
-
-	if _, err := runCmd(pkgMgr, "run", "build"); err != nil {
+	if err := RunProjectBuild(buildDir, pkgMgr); err != nil {
 		return "", err
 	}
 

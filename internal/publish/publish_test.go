@@ -12,7 +12,7 @@ import (
 func TestUpdateScriptForDevReplacesManagedScriptAndInjectsViteClient(t *testing.T) {
 	input := `<script type="module" src="http://localhost:5173/@vite/client"></script><script data-script-id="global-script" src="https://cdn.example/app.js"></script><div>content</div>`
 
-	got := updateScript(input, "http://localhost:5173/src/main.ts", globalScriptID, "dev")
+	got := updateScript(input, ManagedScript{Delivery: deliveryCDN, URL: "http://localhost:5173/src/main.ts"}, globalScriptID, "dev")
 
 	if strings.Contains(got, "https://cdn.example/app.js") {
 		t.Fatalf("expected old managed script to be removed: %s", got)
@@ -29,7 +29,7 @@ func TestUpdateScriptForDevReplacesManagedScriptAndInjectsViteClient(t *testing.
 }
 
 func TestUpdateScriptForProdDoesNotInjectViteClient(t *testing.T) {
-	got := updateScript(`<div>content</div>`, "https://cdn.example/app.js", globalScriptID, "prod")
+	got := updateScript(`<div>content</div>`, ManagedScript{Delivery: deliveryCDN, URL: "https://cdn.example/app.js"}, globalScriptID, "prod")
 
 	if strings.Contains(got, "@vite/client") {
 		t.Fatalf("did not expect vite client in prod output: %s", got)
@@ -39,12 +39,35 @@ func TestUpdateScriptForProdDoesNotInjectViteClient(t *testing.T) {
 	}
 }
 
+func TestUpdateScriptForInlineEmbedsModuleCode(t *testing.T) {
+	got := updateScript(`<div>content</div>`, ManagedScript{Delivery: deliveryInline, Code: `console.log("inline")`}, globalScriptID, "prod")
+
+	if strings.Contains(got, `src="`) {
+		t.Fatalf("did not expect src attribute for inline delivery: %s", got)
+	}
+	if !strings.Contains(got, `console.log("inline")`) {
+		t.Fatalf("expected inline module code in output: %s", got)
+	}
+	if !strings.Contains(got, `data-script-id="global-script"`) {
+		t.Fatalf("expected managed script id in output: %s", got)
+	}
+}
+
 func TestExtractScriptSrcHandlesDifferentAttributeOrder(t *testing.T) {
 	html := `<script src="https://cdn.example/app.js" data-script-id="global-script" defer></script>`
 
 	got := extractScriptSrc(html, globalScriptID)
 	if got != "https://cdn.example/app.js" {
 		t.Fatalf("unexpected script src: %q", got)
+	}
+}
+
+func TestCurrentManagedScriptLabelDetectsInlineModules(t *testing.T) {
+	html := `<script data-script-id="global-script" type="module">console.log("inline")</script>`
+
+	got := currentManagedScriptLabel(html, globalScriptID)
+	if !strings.HasPrefix(got, "inline module (") {
+		t.Fatalf("expected inline managed script label, got %q", got)
 	}
 }
 

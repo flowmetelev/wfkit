@@ -37,22 +37,22 @@ func (f *migrateFlow) run() error {
 	}
 
 	f.printHeader()
-	printMigrateTimeline(f.dryRun(), f.shouldPublish(), false, false, false, false, false, false, false)
+	printMigrateTimeline(f.dryRun(), f.shouldPublish(), f.shouldPushAssets(), f.shouldPublish(), false, false, false, false, false, false, false)
 
 	if err := f.authenticate(); err != nil {
 		return err
 	}
-	printMigrateTimeline(f.dryRun(), f.shouldPublish(), true, false, false, false, false, false, false)
+	printMigrateTimeline(f.dryRun(), f.shouldPublish(), f.shouldPushAssets(), f.shouldPublish(), true, false, false, false, false, false, false)
 
 	if err := f.loadPages(); err != nil {
 		return err
 	}
-	printMigrateTimeline(f.dryRun(), f.shouldPublish(), true, true, false, false, false, false, false)
+	printMigrateTimeline(f.dryRun(), f.shouldPublish(), f.shouldPushAssets(), f.shouldPublish(), true, true, false, false, false, false, false)
 
 	if err := f.loadGlobalCode(); err != nil {
 		return err
 	}
-	printMigrateTimeline(f.dryRun(), f.shouldPublish(), true, true, true, false, false, false, false)
+	printMigrateTimeline(f.dryRun(), f.shouldPublish(), f.shouldPushAssets(), f.shouldPublish(), true, true, true, false, false, false, false)
 
 	if err := f.planMigration(); err != nil {
 		return err
@@ -66,14 +66,14 @@ func (f *migrateFlow) run() error {
 
 	if f.dryRun() {
 		utils.CPrint("Dry run mode: no files or Webflow code were changed", "yellow")
-		printMigrateTimeline(true, f.shouldPublish(), true, true, true, false, false, false, false)
+		printMigrateTimeline(true, f.shouldPublish(), f.shouldPushAssets(), f.shouldPublish(), true, true, true, false, false, false, false)
 		return nil
 	}
 
 	if err := f.writeFiles(); err != nil {
 		return err
 	}
-	printMigrateTimeline(false, f.shouldPublish(), true, true, true, true, false, false, false)
+	printMigrateTimeline(false, f.shouldPublish(), f.shouldPushAssets(), f.shouldPublish(), true, true, true, true, false, false, false)
 
 	if !f.shouldPublish() {
 		f.printSuccess()
@@ -83,12 +83,14 @@ func (f *migrateFlow) run() error {
 	if err := f.buildAssets(); err != nil {
 		return err
 	}
-	printMigrateTimeline(false, true, true, true, true, true, true, false, false)
+	printMigrateTimeline(false, f.shouldPublish(), f.shouldPushAssets(), f.shouldPublish(), true, true, true, true, true, false, false)
 
-	if err := f.pushGit(); err != nil {
-		return err
+	if f.shouldPushAssets() {
+		if err := f.pushGit(); err != nil {
+			return err
+		}
 	}
-	printMigrateTimeline(false, true, true, true, true, true, true, true, false)
+	printMigrateTimeline(false, f.shouldPublish(), f.shouldPushAssets(), f.shouldPublish(), true, true, true, true, true, f.shouldPushAssets(), false)
 
 	if err := f.publish(); err != nil {
 		return err
@@ -106,7 +108,7 @@ func (f *migrateFlow) loadConfig() error {
 	if cfg.AppName == "" {
 		return fmt.Errorf("missing appName configuration in wfkit.json")
 	}
-	if f.shouldPublish() {
+	if f.shouldPublish() && f.delivery() == "cdn" {
 		if err := cfg.ValidatePublish(); err != nil {
 			return err
 		}
@@ -116,6 +118,7 @@ func (f *migrateFlow) loadConfig() error {
 	f.pagesDir = resolveStringFlag(f.cliContext, "pages-dir", "src/pages")
 	f.args = map[string]interface{}{
 		"env":           "prod",
+		"delivery":      resolveDeliveryModeFlag(f.cliContext, cfg.DeliveryMode),
 		"asset-branch":  resolveAssetBranchFlag(f.cliContext, cfg.AssetBranch),
 		"build-dir":     resolveStringFlag(f.cliContext, "build-dir", cfg.BuildDir),
 		"custom-commit": f.cliContext.String("custom-commit"),
@@ -189,6 +192,20 @@ func (f *migrateFlow) writeFiles() error {
 
 func (f *migrateFlow) buildAssets() error {
 	utils.CPrint("Building migrated pages...", "cyan")
+	if f.delivery() == "inline" {
+		if err := build.RunProjectBuild(f.args["build-dir"].(string), f.config.PackageManager); err != nil {
+			return fmt.Errorf("build failed after migration: %w", err)
+		}
+		inlineBundles, err := build.BuildInlineBundles(f.args["build-dir"].(string), f.config.PackageManager)
+		if err != nil {
+			return fmt.Errorf("inline bundle build failed after migration: %w", err)
+		}
+		f.args["inline-global"] = inlineBundles.Global
+		f.args["inline-pages"] = inlineBundles.Pages
+		utils.CPrint("Build successful, inline bundles are ready for Webflow", "green")
+		return nil
+	}
+
 	scriptURL, err := build.DoBuild(f.args, f.config.GitHubUser, f.config.RepositoryName, f.config.PackageManager)
 	if err != nil {
 		return fmt.Errorf("build failed after migration: %w", err)
@@ -243,15 +260,16 @@ func (f *migrateFlow) publish() error {
 func (f *migrateFlow) printSuccess() {
 	if f.shouldPublish() {
 		printMigrationPublishResult(f.result)
-		printMigrateTimeline(false, true, true, true, true, true, true, true, f.result.Published)
+		printMigrateTimeline(false, f.shouldPublish(), f.shouldPushAssets(), f.shouldPublish(), true, true, true, true, true, f.shouldPushAssets(), f.result.Published)
 
 		notifySuccess(f.args["notify"].(bool), "wfkit migrate completed", "Webflow code migration finished successfully.")
 
 		utils.PrintSuccessScreen(
 			"Migration completed",
-			"Legacy Webflow code has been moved into local files and published via jsDelivr.",
+			"Legacy Webflow code has been moved into local files and published back to Webflow.",
 			[]utils.SummaryMetric{
 				{Label: "Pages updated", Value: fmt.Sprintf("%d", f.result.UpdatedPages), Tone: "success"},
+				{Label: "Delivery", Value: f.delivery(), Tone: "info"},
 				{Label: "Published", Value: map[bool]string{true: "yes", false: "no"}[f.result.Published], Tone: "info"},
 			},
 			"git status",
@@ -260,7 +278,7 @@ func (f *migrateFlow) printSuccess() {
 		return
 	}
 
-	printMigrateTimeline(false, false, true, true, true, true, false, false, false)
+	printMigrateTimeline(false, false, false, false, true, true, true, true, false, false, false)
 	notifySuccess(f.args["notify"].(bool), "wfkit migrate completed", "Webflow code migration files were written locally.")
 	utils.PrintSuccessScreen(
 		"Migration completed",
@@ -280,4 +298,12 @@ func (f *migrateFlow) dryRun() bool {
 
 func (f *migrateFlow) shouldPublish() bool {
 	return f.cliContext.Bool("publish")
+}
+
+func (f *migrateFlow) delivery() string {
+	return f.args["delivery"].(string)
+}
+
+func (f *migrateFlow) shouldPushAssets() bool {
+	return f.shouldPublish() && f.delivery() == "cdn"
 }

@@ -72,6 +72,7 @@ Example:
   "repositoryName": "your-repo",
   "packageManager": "bun",
   "assetBranch": "wfkit-dist",
+  "deliveryMode": "cdn",
   "buildDir": "dist/assets",
   "devHost": "localhost",
   "devPort": 5173,
@@ -204,6 +205,22 @@ This flow:
 3. updates the Webflow custom code
 4. republishes the site
 
+By default, production publish uses `deliveryMode: "cdn"` and points Webflow at the artifact branch through jsDelivr.
+
+If you want to skip jsDelivr and write the built module code back into Webflow as managed inline scripts, run:
+
+```bash
+wfkit publish --env prod --delivery inline
+```
+
+Or set this once in `wfkit.json`:
+
+```json
+{
+  "deliveryMode": "inline"
+}
+```
+
 If you want to preview the publish plan without changing GitHub or Webflow, run:
 
 ```bash
@@ -246,8 +263,8 @@ That extended flow:
 
 1. writes the migrated local files
 2. builds the project
-3. pushes the artifact branch
-4. updates Webflow to the new jsDelivr URLs
+3. if `deliveryMode` is `cdn`, pushes the artifact branch
+4. updates Webflow using either jsDelivr URLs or managed inline scripts
 
 ## Release the CLI
 
@@ -372,6 +389,7 @@ Options:
 - `--dev-port` Local dev server port for legacy `dev` mode
 - `--dev-host` Local dev server host for legacy `dev` mode
 - `--custom-commit` Custom Git commit message for the asset branch publish
+- `--delivery` Production delivery mode: `cdn` or `inline`
 - `--asset-branch` Git branch used for published build artifacts and jsDelivr URLs
 - `--build-dir` Build output directory
 - `--notify` Show a desktop notification and play a sound when finished
@@ -400,11 +418,17 @@ Options:
 - `--force` Overwrite existing generated migration targets
 - `--publish` After writing local files, build assets, push the artifact branch, and update Webflow
 - `--custom-commit` Custom Git commit message for the generated migration publish
+- `--delivery` Delivery mode for `--publish`: `cdn` or `inline`
 - `--asset-branch` Git branch used for published build artifacts and jsDelivr URLs
 - `--build-dir` Build output directory
 - `--notify` Show a desktop notification and play a sound when finished
 
-`wfkit publish` always publishes only the built files in `buildDir` to the asset branch. `wfkit migrate --publish` uses that same artifact-only flow. Neither command commits or pushes your working tree source files.
+`wfkit publish` and `wfkit migrate --publish` support two delivery modes:
+
+- `cdn`: publish only the built files in `buildDir` to the asset branch, then point Webflow at jsDelivr
+- `inline`: build self-contained bundles and write them back into Webflow as managed inline module scripts
+
+Neither command commits or pushes your working tree source files.
 
 ### `wfkit update`
 
