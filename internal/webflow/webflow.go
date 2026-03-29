@@ -41,10 +41,34 @@ type GlobalCode struct {
 
 // Page представляет страницу сайта
 type Page struct {
-	ID       string `json:"_id"`
-	PostBody string `json:"postBody"`
-	Title    string `json:"title"`
-	Slug     string `json:"slug"`
+	ID                      string  `json:"_id"`
+	Title                   string  `json:"title"`
+	Slug                    string  `json:"slug"`
+	Type                    string  `json:"type,omitempty"`
+	Site                    string  `json:"site,omitempty"`
+	PostBody                string  `json:"postBody,omitempty"`
+	Head                    string  `json:"head,omitempty"`
+	SEOTitle                string  `json:"seoTitle,omitempty"`
+	SEODescription          string  `json:"seoDesc,omitempty"`
+	SearchTitle             string  `json:"searchTitle,omitempty"`
+	SearchDescription       string  `json:"searchDescription,omitempty"`
+	CanonicalURL            *string `json:"canonicalUrl,omitempty"`
+	IncludeInSitemap        bool    `json:"includeInSitemap"`
+	SearchExclude           bool    `json:"searchExclude"`
+	Archived                bool    `json:"archived"`
+	Draft                   bool    `json:"draft"`
+	ShouldPublish           bool    `json:"shouldPublish"`
+	CanBranch               bool    `json:"canBranch"`
+	StandaloneBranch        bool    `json:"standaloneBranch"`
+	IsStaticTemplate        bool    `json:"isStaticTemplate"`
+	SearchTitleCopied       bool    `json:"searchTitleCopied"`
+	SearchDescriptionCopied bool    `json:"searchDescriptionCopied"`
+	SearchImageCopied       bool    `json:"searchImageCopied"`
+	OGTitle                 string  `json:"ogTitle,omitempty"`
+	OGDescription           string  `json:"ogDesc,omitempty"`
+	OGTitleCopied           bool    `json:"ogTitleCopied"`
+	OGDescriptionCopied     bool    `json:"ogDescCopied"`
+	UtilKey                 *string `json:"utilKey,omitempty"`
 }
 
 // cacheEntry представляет кэшированные данные авторизации
@@ -375,6 +399,24 @@ func GetPagesListFromDom(ctx context.Context, siteName, token, cookies string) (
 	return data.Pages, nil
 }
 
+// GetRawPagesListFromDom returns the raw page objects from the Webflow dom snapshot.
+func GetRawPagesListFromDom(ctx context.Context, siteName, token, cookies string) ([]map[string]interface{}, error) {
+	url := fmt.Sprintf(baseApiUrl, siteName, siteName+"/dom")
+	resp, err := doGet(ctx, url, cookies, token)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get raw pages list: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var data struct {
+		Pages []map[string]interface{} `json:"pages"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		return nil, fmt.Errorf("failed to decode raw pages list response: %w", err)
+	}
+	return data.Pages, nil
+}
+
 // CreateStaticPage создает новую статическую страницу сайта.
 func CreateStaticPage(ctx context.Context, siteName, baseURL, token, cookies, title, slug string) (Page, error) {
 	url := fmt.Sprintf(baseApiUrl, siteName, siteName+"/pages")
@@ -508,6 +550,29 @@ func PutFullPageObject(ctx context.Context, baseUrl, token, cookies string, page
 			}
 		}
 		return fmt.Errorf("failed to update page %s: %w", page.Title, err)
+	}
+	resp.Body.Close()
+	return nil
+}
+
+// PutRawPageObject updates a page using a raw payload captured from the Webflow dom snapshot.
+func PutRawPageObject(ctx context.Context, baseURL, token, cookies, pageID, pageTitle string, payload map[string]interface{}) error {
+	url := fmt.Sprintf(pageApiUrl, baseURL, pageID)
+	resp, err := doPut(ctx, url, cookies, token, payload)
+	if err != nil {
+		if isIncompatibleClientVersionError(err) {
+			InvalidateAuthCache(baseURL)
+			refreshedToken, refreshedCookies, refreshErr := GetCsrfTokenAndCookies(ctx, baseURL)
+			if refreshErr == nil {
+				resp, retryErr := doPut(ctx, url, refreshedCookies, refreshedToken, payload)
+				if retryErr == nil {
+					resp.Body.Close()
+					return nil
+				}
+				err = retryErr
+			}
+		}
+		return fmt.Errorf("failed to update page %s: %w", pageTitle, err)
 	}
 	resp.Body.Close()
 	return nil

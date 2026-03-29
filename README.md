@@ -424,10 +424,20 @@ Subcommands:
 
 - `wfkit pages list` List static Webflow pages
 - `wfkit pages create --name "Docs" --slug docs` Create a static Webflow page
+- `wfkit pages update --page-slug docs --seo-title "Docs" --seo-description "..."` Update page metadata and SEO fields
 - `wfkit pages inspect --slug docs` Inspect one page and its managed custom code blocks
 - `wfkit pages delete --slug docs --yes` Delete one static Webflow page
 - `wfkit pages open --slug docs` Open the published Webflow page in your browser
 - `wfkit pages types` Generate `src/generated/wfkit-pages.ts` from the current Webflow pages
+
+`wfkit pages update` can change:
+
+- title and slug
+- SEO title and description
+- search title and description
+- canonical URL
+- sitemap inclusion
+- search exclusion
 
 ### `wfkit cms`
 
