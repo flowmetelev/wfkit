@@ -48,11 +48,11 @@ func printMigrationPublishResult(result publish.MigrationPublishResult) {
 	}
 
 	utils.PrintSection("Migration Result")
-	utils.PrintStatus("OK", "Migrated pages published", fmt.Sprintf("%d", result.UpdatedPages))
+	utils.PrintStatus("OK", "Migrated pages", fmt.Sprintf("%d", result.UpdatedPages))
 	if result.Published {
 		utils.PrintStatus("OK", "Webflow", "Pages were updated and published")
 	} else {
-		utils.PrintStatus("SKIP", "Webflow", "No page changes were required after migration")
+		utils.PrintStatus("SKIP", "Webflow", "No publish step was needed after migration")
 	}
 	fmt.Println()
 }

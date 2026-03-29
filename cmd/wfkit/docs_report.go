@@ -17,7 +17,7 @@ func printDocsTimeline(authed, planned, applied bool) {
 }
 
 func printDocsPlan(plan publish.DocsHubPlan) {
-	utils.PrintSection("Docs Hub Plan")
+	utils.PrintSection("Docs Hub")
 	utils.PrintStatus(docsStatus(plan.Action), plan.PageSlug, plan.Message)
 	utils.PrintKeyValue("Markdown", plan.EntryPath)
 	utils.PrintKeyValue("Target page", displayValue(plan.PageTitle))
@@ -28,11 +28,9 @@ func printDocsPlan(plan publish.DocsHubPlan) {
 
 func printDocsResult(result publish.DocsHubResult) {
 	utils.PrintSection("Docs Result")
-	utils.PrintSummary(
-		utils.SummaryMetric{Label: "Created", Value: map[bool]string{true: "yes", false: "no"}[result.Created], Tone: "info"},
-		utils.SummaryMetric{Label: "Updated", Value: map[bool]string{true: "yes", false: "no"}[result.Updated], Tone: "success"},
-		utils.SummaryMetric{Label: "Published", Value: map[bool]string{true: "yes", false: "no"}[result.Published], Tone: "info"},
-	)
+	utils.PrintStatus("INFO", "Created", map[bool]string{true: "yes", false: "no"}[result.Created])
+	utils.PrintStatus("OK", "Updated", map[bool]string{true: "yes", false: "no"}[result.Updated])
+	utils.PrintStatus("INFO", "Published", map[bool]string{true: "yes", false: "no"}[result.Published])
 	fmt.Println()
 }
 
