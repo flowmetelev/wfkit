@@ -2,6 +2,8 @@ package main
 
 import (
 	"flag"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"wfkit/internal/config"
@@ -44,5 +46,52 @@ func TestNewPublishRequestDefaultsToProdEnvWithoutPublishFlags(t *testing.T) {
 
 	if request.env() != "prod" {
 		t.Fatalf("expected default publish env prod, got %q", request.env())
+	}
+}
+
+func TestMigrateLoadConfigSupportsInlinePublishBeforeArgsInit(t *testing.T) {
+	originalDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+
+	tmpDir := t.TempDir()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("chdir temp dir: %v", err)
+	}
+	defer func() {
+		_ = os.Chdir(originalDir)
+	}()
+
+	if err := os.WriteFile(filepath.Join(tmpDir, "wfkit.json"), []byte(`{
+		"appName": "demo-site",
+		"packageManager": "bun",
+		"deliveryMode": "cdn"
+	}`), 0o644); err != nil {
+		t.Fatalf("write wfkit.json: %v", err)
+	}
+
+	app := &cli.App{}
+	set := flag.NewFlagSet("wfkit", flag.ContinueOnError)
+	_ = set.Bool("publish", false, "")
+	_ = set.String("delivery", "", "")
+	_ = set.String("pages-dir", "", "")
+	_ = set.String("asset-branch", "", "")
+	_ = set.String("branch", "", "")
+	_ = set.String("build-dir", "", "")
+	_ = set.String("custom-commit", "", "")
+	_ = set.Bool("notify", false, "")
+	if err := set.Parse([]string{"--publish", "--delivery", "inline"}); err != nil {
+		t.Fatalf("parse flags: %v", err)
+	}
+
+	ctx := cli.NewContext(app, set, nil)
+	flow := newMigrateFlow(ctx)
+	if err := flow.loadConfig(); err != nil {
+		t.Fatalf("loadConfig: %v", err)
+	}
+
+	if got := flow.delivery(); got != "inline" {
+		t.Fatalf("expected inline delivery, got %q", got)
 	}
 }
