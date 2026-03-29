@@ -83,6 +83,13 @@ func resolveBoolFlag(c *cli.Context, name string, fallback bool) bool {
 	return fallback
 }
 
+func boolString(value bool) string {
+	if value {
+		return "true"
+	}
+	return "false"
+}
+
 func printGitPushSummary(result build.GitPushResult) {
 	switch {
 	case !result.Committed:
