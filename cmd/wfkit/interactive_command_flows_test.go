@@ -91,3 +91,12 @@ func TestInteractiveDocsFlowBuildsContext(t *testing.T) {
 		t.Fatal("unexpected docs context flags")
 	}
 }
+
+func TestPublishedDocsURLUsesPublishedPageRules(t *testing.T) {
+	if got := publishedDocsURL("https://demo.webflow.io", "docs"); got != "https://demo.webflow.io/docs" {
+		t.Fatalf("unexpected docs URL: %q", got)
+	}
+	if got := publishedDocsURL("https://demo.webflow.io", "home"); got != "https://demo.webflow.io" {
+		t.Fatalf("unexpected home docs URL: %q", got)
+	}
+}

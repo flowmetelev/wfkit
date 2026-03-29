@@ -2,8 +2,10 @@ package main
 
 import (
 	"flag"
+	"fmt"
 
 	"wfkit/internal/config"
+	"wfkit/internal/utils"
 
 	"github.com/charmbracelet/huh"
 	"github.com/urfave/cli/v2"
@@ -38,10 +40,44 @@ func newInteractiveMigrateFlow(parent *cli.Context) *interactiveMigrateFlow {
 }
 
 func (f *interactiveMigrateFlow) run() error {
-	if err := f.collectInput(); err != nil {
-		return err
+	configured := false
+	for {
+		if !configured {
+			if err := f.collectInput(); err != nil {
+				return err
+			}
+		}
+
+		if err := migrateMode(f.newContext()); err != nil {
+			return err
+		}
+
+		next, err := f.postAction()
+		if err != nil {
+			return err
+		}
+
+		switch next {
+		case "rerun":
+			configured = true
+		case "status":
+			if err := showGitStatus(); err != nil {
+				return err
+			}
+			configured = true
+		case "diff":
+			if err := showGitDiffSummary(); err != nil {
+				return err
+			}
+			configured = true
+		case "adjust":
+			configured = false
+		case "back":
+			return interactiveMode(f.parent)
+		default:
+			return nil
+		}
 	}
-	return migrateMode(f.newContext())
 }
 
 func (f *interactiveMigrateFlow) collectInput() error {
@@ -130,4 +166,29 @@ func (f *interactiveMigrateFlow) newContext() *cli.Context {
 	_ = ctx.Set("custom-commit", f.customCommit)
 	_ = ctx.Set("notify", boolString(f.notify))
 	return ctx
+}
+
+func (f *interactiveMigrateFlow) postAction() (string, error) {
+	var action string
+	options := []huh.Option[string]{
+		huh.NewOption("Run again with same settings", "rerun"),
+		huh.NewOption("Show git status", "status"),
+		huh.NewOption("Show diff summary", "diff"),
+		huh.NewOption("Adjust settings", "adjust"),
+		huh.NewOption("Back to main menu", "back"),
+	}
+
+	if !f.dryRun {
+		utils.PrintStatus("READY", "Next step", "Review migrated files before running a separate publish.")
+		fmt.Println()
+	}
+
+	return action, huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("What next?").
+				Options(options...).
+				Value(&action),
+		),
+	).Run()
 }

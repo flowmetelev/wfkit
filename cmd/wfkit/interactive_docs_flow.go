@@ -2,8 +2,10 @@ package main
 
 import (
 	"flag"
+	"fmt"
 
 	"wfkit/internal/config"
+	"wfkit/internal/utils"
 
 	"github.com/charmbracelet/huh"
 	"github.com/urfave/cli/v2"
@@ -32,10 +34,45 @@ func newInteractiveDocsFlow(parent *cli.Context) *interactiveDocsFlow {
 }
 
 func (f *interactiveDocsFlow) run() error {
-	if err := f.collectInput(); err != nil {
-		return err
+	configured := false
+	for {
+		if !configured {
+			if err := f.collectInput(); err != nil {
+				return err
+			}
+		}
+
+		if err := docsMode(f.newContext()); err != nil {
+			return err
+		}
+
+		next, err := f.postAction()
+		if err != nil {
+			return err
+		}
+
+		switch next {
+		case "rerun":
+			configured = true
+		case "open":
+			targetURL := publishedDocsURL(siteURLFromParentContext(f.parent), f.pageSlug)
+			if targetURL == "" {
+				return fmt.Errorf("failed to derive published docs URL for %q", f.pageSlug)
+			}
+			if err := openURL(targetURL); err != nil {
+				return fmt.Errorf("failed to open %s: %w", targetURL, err)
+			}
+			utils.PrintStatus("OK", "Opened", targetURL)
+			fmt.Println()
+			configured = true
+		case "adjust":
+			configured = false
+		case "back":
+			return interactiveMode(f.parent)
+		default:
+			return nil
+		}
 	}
-	return docsMode(f.newContext())
 }
 
 func (f *interactiveDocsFlow) collectInput() error {
@@ -84,4 +121,23 @@ func (f *interactiveDocsFlow) newContext() *cli.Context {
 	_ = ctx.Set("publish", boolString(f.publish))
 	_ = ctx.Set("notify", boolString(f.notify))
 	return ctx
+}
+
+func (f *interactiveDocsFlow) postAction() (string, error) {
+	var action string
+	options := []huh.Option[string]{
+		huh.NewOption("Run again with same settings", "rerun"),
+		huh.NewOption("Adjust settings", "adjust"),
+		huh.NewOption("Open published docs page", "open"),
+		huh.NewOption("Back to main menu", "back"),
+	}
+
+	return action, huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("What next?").
+				Options(options...).
+				Value(&action),
+		),
+	).Run()
 }

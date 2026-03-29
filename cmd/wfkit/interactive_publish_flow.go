@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 
 	"wfkit/internal/config"
 
@@ -36,10 +37,43 @@ func newInteractivePublishFlow(parent *cli.Context) *interactivePublishFlow {
 }
 
 func (f *interactivePublishFlow) run() error {
-	if err := f.collectInput(); err != nil {
-		return err
+	configured := false
+	for {
+		if !configured {
+			if err := f.collectInput(); err != nil {
+				return err
+			}
+		}
+
+		if err := publishMode(f.newContext()); err != nil {
+			return err
+		}
+
+		next, err := f.postAction()
+		if err != nil {
+			return err
+		}
+
+		switch next {
+		case "rerun":
+			configured = true
+		case "open":
+			targetURL := siteURLFromParentContext(f.parent)
+			if targetURL == "" {
+				return fmt.Errorf("failed to derive published site URL from configuration")
+			}
+			if err := openURL(targetURL); err != nil {
+				return fmt.Errorf("failed to open %s: %w", targetURL, err)
+			}
+			configured = true
+		case "adjust":
+			configured = false
+		case "back":
+			return interactiveMode(f.parent)
+		default:
+			return nil
+		}
 	}
-	return publishMode(f.newContext())
 }
 
 func (f *interactivePublishFlow) collectInput() error {
@@ -113,4 +147,23 @@ func (f *interactivePublishFlow) newContext() *cli.Context {
 	_ = ctx.Set("update", boolString(f.update))
 	_ = ctx.Set("notify", boolString(f.notify))
 	return ctx
+}
+
+func (f *interactivePublishFlow) postAction() (string, error) {
+	var action string
+	options := []huh.Option[string]{
+		huh.NewOption("Run again with same settings", "rerun"),
+		huh.NewOption("Adjust settings", "adjust"),
+		huh.NewOption("Open published site", "open"),
+		huh.NewOption("Back to main menu", "back"),
+	}
+
+	return action, huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("What next?").
+				Options(options...).
+				Value(&action),
+		),
+	).Run()
 }
