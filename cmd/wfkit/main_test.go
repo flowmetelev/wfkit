@@ -50,6 +50,28 @@ func TestInteractiveCategoryOptionsIncludeContentAndSupport(t *testing.T) {
 	}
 }
 
+func TestCategoryActionTreatsLeafCategoriesAsDirectActions(t *testing.T) {
+	tests := map[string]string{
+		"update":          "update",
+		"request_feature": "request_feature",
+		"report_bug":      "report_bug",
+	}
+
+	for category, want := range tests {
+		got, ok := categoryAction(category)
+		if !ok {
+			t.Fatalf("expected %q to be a direct action category", category)
+		}
+		if got != want {
+			t.Fatalf("expected %q action for %q, got %q", want, category, got)
+		}
+	}
+
+	if _, ok := categoryAction("develop"); ok {
+		t.Fatal("did not expect develop to be treated as a direct action category")
+	}
+}
+
 func TestCompactUpdateMessageIncludesVersions(t *testing.T) {
 	got := compactUpdateMessage("1.6.0", "1.7.0")
 	if got != "current v1.6.0  latest v1.7.0  Run `wfkit update` when ready." {

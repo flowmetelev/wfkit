@@ -35,6 +35,15 @@ func (f *interactiveFlow) run() error {
 			return nil
 		}
 
+		if action, ok := categoryAction(f.category); ok {
+			f.action = action
+			utils.ClearScreen()
+			if err := f.dispatch(); err != nil {
+				return err
+			}
+			continue
+		}
+
 		for {
 			utils.ClearScreen()
 			f.printHeader()
@@ -207,6 +216,15 @@ func categoryTitle(category string) string {
 		return "Report a bug"
 	default:
 		return "Actions"
+	}
+}
+
+func categoryAction(category string) (string, bool) {
+	switch category {
+	case "update", "request_feature", "report_bug":
+		return category, true
+	default:
+		return "", false
 	}
 }
 
