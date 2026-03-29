@@ -73,7 +73,7 @@ func (f *interactiveFlow) dispatch() error {
 	case "proxy_dev":
 		return proxyMode(f.cliContext)
 	case "doctor":
-		return doctorMode(f.cliContext)
+		return newInteractiveDoctorFlow(f.cliContext).run()
 	case "config":
 		return configMode(f.cliContext)
 	case "update":

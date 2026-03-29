@@ -100,3 +100,16 @@ func TestPublishedDocsURLUsesPublishedPageRules(t *testing.T) {
 		t.Fatalf("unexpected home docs URL: %q", got)
 	}
 }
+
+func TestInteractiveDoctorFlowBuildsContext(t *testing.T) {
+	parent := cli.NewContext(&cli.App{}, flag.NewFlagSet("wfkit", flag.ContinueOnError), nil)
+	flow := &interactiveDoctorFlow{
+		parent:   parent,
+		skipAuth: true,
+	}
+
+	ctx := flow.newContext()
+	if !ctx.Bool("skip-auth") {
+		t.Fatal("expected skip-auth to be set")
+	}
+}

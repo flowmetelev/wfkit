@@ -73,10 +73,7 @@ func (f *interactivePagesFlow) dispatch() error {
 		if err := f.collectCreateInput(); err != nil {
 			return err
 		}
-		return pagesCreateMode(f.newContext(
-			map[string]string{"name": f.name, "slug": f.slug, "output": f.output},
-			map[string]bool{"types": f.writeTypes, "json": f.jsonOutput},
-		))
+		return f.runCreateFlow()
 	case "inspect":
 		return f.inspectPageFromList()
 	case "delete":
@@ -93,6 +90,56 @@ func (f *interactivePagesFlow) dispatch() error {
 		))
 	default:
 		return nil
+	}
+}
+
+func (f *interactivePagesFlow) runCreateFlow() error {
+	if err := pagesCreateMode(f.newContext(
+		map[string]string{"name": f.name, "slug": f.slug, "output": f.output},
+		map[string]bool{"types": f.writeTypes, "json": f.jsonOutput},
+	)); err != nil {
+		return err
+	}
+
+	targetSlug := strings.TrimSpace(f.slug)
+	if targetSlug == "" {
+		targetSlug = normalizePageSlug(f.name)
+	}
+	if targetSlug == "" {
+		return nil
+	}
+
+	for {
+		var action string
+		if err := huh.NewForm(
+			huh.NewGroup(
+				huh.NewSelect[string]().
+					Title(fmt.Sprintf("Page %q created. What next?", targetSlug)).
+					Options(
+						huh.NewOption("Inspect created page", "inspect"),
+						huh.NewOption("Open published page", "open"),
+						huh.NewOption("Back to page management", "back"),
+					).
+					Value(&action),
+			),
+		).Run(); err != nil {
+			return err
+		}
+
+		switch action {
+		case "inspect":
+			if err := pagesInspectMode(f.newContext(map[string]string{"slug": targetSlug}, nil)); err != nil {
+				return err
+			}
+		case "open":
+			if err := pagesOpenMode(f.newContext(map[string]string{"slug": targetSlug}, nil)); err != nil {
+				return err
+			}
+		case "back":
+			return nil
+		default:
+			return nil
+		}
 	}
 }
 
