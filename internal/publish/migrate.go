@@ -220,7 +220,8 @@ func PublishMigratedPages(ctx context.Context, siteName, baseURL, cookies, pToke
 			result.GlobalPlan = globalPlan
 
 			if globalPlan.Action == "update" {
-				updated, _, err := PublishGlobalScript(ctx, siteName, cookies, pToken, globalScript, env)
+				publishTargets, _ := args["publish-targets"].([]string)
+				updated, _, err := PublishGlobalScript(ctx, siteName, cookies, pToken, globalScript, env, publishTargets)
 				if err != nil {
 					return result, fmt.Errorf("failed to update global script during migration: %w", err)
 				}
@@ -265,7 +266,8 @@ func PublishMigratedPages(ctx context.Context, siteName, baseURL, cookies, pToke
 	}
 
 	if anyPageChanges {
-		if err := webflow.PublishSite(ctx, siteName, pToken, cookies); err != nil {
+		publishTargets, _ := args["publish-targets"].([]string)
+		if err := webflow.PublishSiteTargets(ctx, siteName, pToken, cookies, publishTargets); err != nil {
 			return result, fmt.Errorf("failed to publish migrated pages: %w", err)
 		}
 		result.Published = true

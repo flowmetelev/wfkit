@@ -306,11 +306,20 @@ func UpdateGlobalCode(ctx context.Context, siteName, token, cookies string, head
 	return nil
 }
 
-// PublishSite публикует сайт.
+// PublishSite публикует сайт в staging по умолчанию.
 func PublishSite(ctx context.Context, siteName, token, cookies string) error {
+	return PublishSiteTargets(ctx, siteName, token, cookies, []string{fmt.Sprintf("%s.webflow.io", siteName)})
+}
+
+// PublishSiteTargets публикует сайт на указанные домены.
+func PublishSiteTargets(ctx context.Context, siteName, token, cookies string, publishTargets []string) error {
+	if len(publishTargets) == 0 {
+		return fmt.Errorf("failed to publish site: no publish targets selected")
+	}
+
 	url := fmt.Sprintf(baseApiUrl, siteName, siteName+"/queue-publish")
 	body := map[string]interface{}{
-		"publishTarget": []string{fmt.Sprintf("%s.webflow.io", siteName)},
+		"publishTarget": publishTargets,
 		"meta":          map[string]string{"designerMode": "design"},
 	}
 	resp, err := doPost(ctx, url, cookies, token, body)

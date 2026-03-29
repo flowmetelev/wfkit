@@ -106,7 +106,7 @@ func TestValidatePublishReadinessRequiresPublishAndCustomCode(t *testing.T) {
 		Domains: webflow.PublishDomains{
 			StagingDomain: webflow.PublishDomain{Name: "demo.webflow.io"},
 		},
-	})
+	}, "staging")
 	if err == nil {
 		t.Fatal("expected publish readiness validation to fail")
 	}
@@ -139,5 +139,44 @@ func TestDoctorChecksFromPublishPreflightWarnsWithoutProductionDomains(t *testin
 
 	if !foundProduction {
 		t.Fatal("expected production destinations check to be present")
+	}
+}
+
+func TestResolvePublishTargetsSupportsAllModes(t *testing.T) {
+	preflight := webflow.PublishPreflight{
+		Domains: webflow.PublishDomains{
+			StagingDomain: webflow.PublishDomain{Name: "demo.webflow.io"},
+			ProductionDomains: []webflow.PublishDomain{
+				{Name: "example.com"},
+				{Name: "www.example.com"},
+			},
+		},
+	}
+
+	if got := resolvePublishTargets(preflight, "staging"); len(got) != 1 || got[0] != "demo.webflow.io" {
+		t.Fatalf("unexpected staging targets: %#v", got)
+	}
+
+	if got := resolvePublishTargets(preflight, "production"); len(got) != 2 || got[0] != "example.com" || got[1] != "www.example.com" {
+		t.Fatalf("unexpected production targets: %#v", got)
+	}
+
+	if got := resolvePublishTargets(preflight, "all"); len(got) != 3 {
+		t.Fatalf("unexpected all targets: %#v", got)
+	}
+}
+
+func TestValidatePublishReadinessRequiresProductionDomainsForProductionTarget(t *testing.T) {
+	err := validatePublishReadiness(webflow.PublishPreflight{
+		Permissions: webflow.PublishPermissions{
+			CanPublish:          true,
+			CanManageCustomCode: true,
+		},
+		Domains: webflow.PublishDomains{
+			StagingDomain: webflow.PublishDomain{Name: "demo.webflow.io"},
+		},
+	}, "production")
+	if err == nil {
+		t.Fatal("expected production target validation to fail without production domains")
 	}
 }

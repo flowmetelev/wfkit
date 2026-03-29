@@ -64,7 +64,7 @@ type ByPagePublishResult struct {
 // - были ли внесены изменения
 // - массив из head и body HTML (для справки)
 // - любую возникшую ошибку
-func PublishGlobalScript(ctx context.Context, siteName, cookies, pToken string, script ManagedScript, env string) (bool, [2]string, error) {
+func PublishGlobalScript(ctx context.Context, siteName, cookies, pToken string, script ManagedScript, env string, publishTargets []string) (bool, [2]string, error) {
 	globalData, err := webflow.GetGlobalCode(ctx, siteName, pToken, cookies)
 	if err != nil {
 		return false, [2]string{}, fmt.Errorf("failed to get global code: %w", err)
@@ -82,7 +82,7 @@ func PublishGlobalScript(ctx context.Context, siteName, cookies, pToken string, 
 		return false, [2]string{}, fmt.Errorf("failed to update global code: %w", err)
 	}
 
-	if err := webflow.PublishSite(ctx, siteName, pToken, cookies); err != nil {
+	if err := webflow.PublishSiteTargets(ctx, siteName, pToken, cookies, publishTargets); err != nil {
 		return true, [2]string{head, postBody}, fmt.Errorf("code updated but failed to publish site: %w", err)
 	}
 
@@ -131,7 +131,8 @@ func PublishByPage(ctx context.Context, siteName, baseUrl, cookies, pToken, ghUs
 		if err != nil {
 			return result, err
 		}
-		updated, _, err := PublishGlobalScript(ctx, siteName, cookies, pToken, script, env)
+		publishTargets, _ := args["publish-targets"].([]string)
+		updated, _, err := PublishGlobalScript(ctx, siteName, cookies, pToken, script, env, publishTargets)
 		if err != nil {
 			return result, fmt.Errorf("failed to update global script: %w", err)
 		}
@@ -177,7 +178,8 @@ func PublishByPage(ctx context.Context, siteName, baseUrl, cookies, pToken, ghUs
 	}
 
 	if anyChanges {
-		if err := webflow.PublishSite(ctx, siteName, pToken, cookies); err != nil {
+		publishTargets, _ := args["publish-targets"].([]string)
+		if err := webflow.PublishSiteTargets(ctx, siteName, pToken, cookies, publishTargets); err != nil {
 			return result, fmt.Errorf("failed to publish site changes: %w", err)
 		}
 		utils.CPrint("Site published with all changes", "green")

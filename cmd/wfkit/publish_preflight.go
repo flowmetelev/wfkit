@@ -19,16 +19,38 @@ func printPublishReadiness(preflight webflow.PublishPreflight) {
 	fmt.Println()
 }
 
-func validatePublishReadiness(preflight webflow.PublishPreflight) error {
+func printPublishReadinessForTarget(preflight webflow.PublishPreflight, target string) {
+	printPublishReadiness(preflight)
+	utils.PrintSection("Publish Target")
+	utils.PrintStatus("INFO", "Selection", describeResolvedTargets(preflight, target))
+	fmt.Println()
+}
+
+func validatePublishReadiness(preflight webflow.PublishPreflight, target string) error {
 	if !preflight.Permissions.CanPublish {
 		return fmt.Errorf("Webflow permissions do not allow site publishing")
 	}
 	if !preflight.Permissions.CanManageCustomCode {
 		return fmt.Errorf("Webflow permissions do not allow custom code updates")
 	}
-	if strings.TrimSpace(preflight.Domains.StagingDomain.Name) == "" {
-		return fmt.Errorf("Webflow staging domain is missing, so publish cannot proceed")
+
+	switch target {
+	case "staging":
+		if strings.TrimSpace(preflight.Domains.StagingDomain.Name) == "" {
+			return fmt.Errorf("Webflow staging domain is missing, so publish cannot proceed")
+		}
+	case "production":
+		if len(preflight.Domains.ProductionDomains) == 0 {
+			return fmt.Errorf("Webflow production domains are not configured, so --target production cannot publish")
+		}
+	case "all":
+		if strings.TrimSpace(preflight.Domains.StagingDomain.Name) == "" && len(preflight.Domains.ProductionDomains) == 0 {
+			return fmt.Errorf("Webflow has no publishable destinations configured")
+		}
+	default:
+		return fmt.Errorf("invalid publish target %q (expected staging, production, or all)", target)
 	}
+
 	return nil
 }
 
@@ -198,4 +220,48 @@ func booleanLabel(label string, ok bool) string {
 		return fmt.Sprintf("%s ok", label)
 	}
 	return fmt.Sprintf("%s missing", label)
+}
+
+func resolvePublishTargetFlag(flagValue interface{ String(string) string }) string {
+	target := strings.ToLower(strings.TrimSpace(flagValue.String("target")))
+	if target == "" {
+		return "staging"
+	}
+	return target
+}
+
+func resolvePublishTargets(preflight webflow.PublishPreflight, target string) []string {
+	targets := make([]string, 0, len(preflight.Domains.ProductionDomains)+1)
+
+	switch target {
+	case "staging":
+		if name := strings.TrimSpace(preflight.Domains.StagingDomain.Name); name != "" {
+			targets = append(targets, name)
+		}
+	case "production":
+		for _, domain := range preflight.Domains.ProductionDomains {
+			if name := strings.TrimSpace(domain.Name); name != "" {
+				targets = append(targets, name)
+			}
+		}
+	case "all":
+		if name := strings.TrimSpace(preflight.Domains.StagingDomain.Name); name != "" {
+			targets = append(targets, name)
+		}
+		for _, domain := range preflight.Domains.ProductionDomains {
+			if name := strings.TrimSpace(domain.Name); name != "" {
+				targets = append(targets, name)
+			}
+		}
+	}
+
+	return targets
+}
+
+func describeResolvedTargets(preflight webflow.PublishPreflight, target string) string {
+	targets := resolvePublishTargets(preflight, target)
+	if len(targets) == 0 {
+		return fmt.Sprintf("%s (no matching destinations)", target)
+	}
+	return fmt.Sprintf("%s -> %s", target, strings.Join(targets, ", "))
 }

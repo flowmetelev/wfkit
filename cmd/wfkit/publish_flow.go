@@ -45,6 +45,7 @@ func newPublishRequest(c *cli.Context, cfg config.Config) *publishRequest {
 			"dev-host":      devHost,
 			"custom-commit": c.String("custom-commit"),
 			"delivery":      resolveDeliveryModeFlag(c, cfg.DeliveryMode),
+			"target":        resolvePublishTargetFlag(c),
 			"asset-branch":  resolveAssetBranchFlag(c, cfg.AssetBranch),
 			"build-dir":     resolveStringFlag(c, "build-dir", cfg.BuildDir),
 			"notify":        resolveNotifyFlag(c),
@@ -94,9 +95,10 @@ func (r *publishRequest) loadPreflight() error {
 	}
 
 	r.preflight = &preflight
-	printPublishReadiness(preflight)
+	r.args["publish-targets"] = resolvePublishTargets(preflight, r.target())
+	printPublishReadinessForTarget(preflight, r.target())
 
-	if err := validatePublishReadiness(preflight); err != nil {
+	if err := validatePublishReadiness(preflight, r.target()); err != nil {
 		return err
 	}
 
@@ -176,7 +178,7 @@ func (r *publishRequest) publishProdGlobal(scriptURL string) error {
 	}
 	printGlobalPublishPlan(plan)
 
-	updated, oldCode, err := publish.PublishGlobalScript(r.cli.Context, r.cfg.AppName, r.cookies, r.pToken, r.globalProdScript(scriptURL), "prod")
+	updated, oldCode, err := publish.PublishGlobalScript(r.cli.Context, r.cfg.AppName, r.cookies, r.pToken, r.globalProdScript(scriptURL), "prod", r.publishTargets())
 	if err != nil {
 		return fmt.Errorf("publishing failed: %w", err)
 	}
@@ -304,7 +306,7 @@ func (r *publishRequest) publishDev(ctx context.Context, scriptURL string) ([2]s
 	}
 	printGlobalPublishPlan(plan)
 
-	updated, oldCode, err := publish.PublishGlobalScript(ctx, r.cfg.AppName, r.cookies, r.pToken, publish.ManagedScript{Delivery: "cdn", URL: scriptURL}, "dev")
+	updated, oldCode, err := publish.PublishGlobalScript(ctx, r.cfg.AppName, r.cookies, r.pToken, publish.ManagedScript{Delivery: "cdn", URL: scriptURL}, "dev", []string{r.cfg.AppName + ".webflow.io"})
 	if err != nil {
 		return [2]string{}, false, fmt.Errorf("publishing failed: %w", err)
 	}
@@ -352,6 +354,7 @@ func (r *publishRequest) printSuccess() {
 		[]utils.SummaryMetric{
 			{Label: "Environment", Value: "prod", Tone: "success"},
 			{Label: "Delivery", Value: r.delivery(), Tone: "info"},
+			{Label: "Target", Value: r.target(), Tone: "info"},
 			{Label: "Mode", Value: map[bool]string{true: "by-page", false: "global"}[r.byPage()], Tone: "info"},
 		},
 		"git status",
@@ -359,10 +362,15 @@ func (r *publishRequest) printSuccess() {
 	)
 }
 
-func (r *publishRequest) env() string          { return r.args["env"].(string) }
-func (r *publishRequest) byPage() bool         { return r.args["by-page"].(bool) }
-func (r *publishRequest) dryRun() bool         { return r.args["dry-run"].(bool) }
-func (r *publishRequest) delivery() string     { return r.args["delivery"].(string) }
+func (r *publishRequest) env() string      { return r.args["env"].(string) }
+func (r *publishRequest) byPage() bool     { return r.args["by-page"].(bool) }
+func (r *publishRequest) dryRun() bool     { return r.args["dry-run"].(bool) }
+func (r *publishRequest) delivery() string { return r.args["delivery"].(string) }
+func (r *publishRequest) target() string   { return r.args["target"].(string) }
+func (r *publishRequest) publishTargets() []string {
+	targets, _ := r.args["publish-targets"].([]string)
+	return targets
+}
 func (r *publishRequest) scriptURL() string    { return r.args["script-url"].(string) }
 func (r *publishRequest) devPort() int         { return r.args["dev-port"].(int) }
 func (r *publishRequest) devHost() string      { return r.args["dev-host"].(string) }
