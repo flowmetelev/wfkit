@@ -105,10 +105,11 @@ func (f *migrateFlow) loadConfig() error {
 	if err != nil {
 		return fmt.Errorf("failed to read config: %w", err)
 	}
+	deliveryMode := resolveDeliveryModeFlag(f.cliContext, cfg.DeliveryMode)
 	if cfg.AppName == "" {
 		return fmt.Errorf("missing appName configuration in wfkit.json")
 	}
-	if f.shouldPublish() && f.delivery() == "cdn" {
+	if f.shouldPublish() && deliveryMode == "cdn" {
 		if err := cfg.ValidatePublish(); err != nil {
 			return err
 		}
@@ -118,7 +119,7 @@ func (f *migrateFlow) loadConfig() error {
 	f.pagesDir = resolveStringFlag(f.cliContext, "pages-dir", "src/pages")
 	f.args = map[string]interface{}{
 		"env":           "prod",
-		"delivery":      resolveDeliveryModeFlag(f.cliContext, cfg.DeliveryMode),
+		"delivery":      deliveryMode,
 		"asset-branch":  resolveAssetBranchFlag(f.cliContext, cfg.AssetBranch),
 		"build-dir":     resolveStringFlag(f.cliContext, "build-dir", cfg.BuildDir),
 		"custom-commit": f.cliContext.String("custom-commit"),
