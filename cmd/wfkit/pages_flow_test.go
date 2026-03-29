@@ -1,10 +1,13 @@
 package main
 
 import (
+	"flag"
 	"strings"
 	"testing"
 
 	"wfkit/internal/webflow"
+
+	"github.com/urfave/cli/v2"
 )
 
 func TestNormalizePageSlug(t *testing.T) {
@@ -59,5 +62,61 @@ func TestRenderPagesTypesModuleFallsBackToStringWhenEmpty(t *testing.T) {
 	}
 	if !strings.Contains(module, `siteRoot: '[data-wf-site-root]'`) {
 		t.Fatalf("expected default global selector contracts, got:\n%s", module)
+	}
+}
+
+func TestManagedScriptIDsDeduplicatesAndSorts(t *testing.T) {
+	got := managedScriptIDs(`
+		<script data-script-id="docs-hub"></script>
+		<script data-script-id="global-script"></script>
+		<script data-script-id="docs-hub"></script>
+	`)
+
+	if len(got) != 2 || got[0] != "docs-hub" || got[1] != "global-script" {
+		t.Fatalf("unexpected managed script ids: %#v", got)
+	}
+}
+
+func TestResolveTargetPageSupportsSlugFallbackAndID(t *testing.T) {
+	app := &cli.App{}
+	set := flag.NewFlagSet("wfkit pages inspect", flag.ContinueOnError)
+	_ = set.String("slug", "", "")
+	_ = set.String("id", "", "")
+	if err := set.Parse([]string{"--slug", "home"}); err != nil {
+		t.Fatalf("parse flags: %v", err)
+	}
+
+	flow := newPagesFlow(cli.NewContext(app, set, nil))
+	flow.pages = []webflow.Page{
+		{ID: "page-home", Title: "Home", Slug: ""},
+		{ID: "page-docs", Title: "Docs", Slug: "docs"},
+	}
+
+	page, err := flow.resolveTargetPage()
+	if err != nil {
+		t.Fatalf("resolveTargetPage by slug: %v", err)
+	}
+	if page.ID != "page-home" {
+		t.Fatalf("expected home page by normalized title fallback, got %q", page.ID)
+	}
+
+	set = flag.NewFlagSet("wfkit pages inspect", flag.ContinueOnError)
+	_ = set.String("slug", "", "")
+	_ = set.String("id", "", "")
+	if err := set.Parse([]string{"--id", "page-docs"}); err != nil {
+		t.Fatalf("parse flags: %v", err)
+	}
+	flow = newPagesFlow(cli.NewContext(app, set, nil))
+	flow.pages = []webflow.Page{
+		{ID: "page-home", Title: "Home", Slug: ""},
+		{ID: "page-docs", Title: "Docs", Slug: "docs"},
+	}
+
+	page, err = flow.resolveTargetPage()
+	if err != nil {
+		t.Fatalf("resolveTargetPage by id: %v", err)
+	}
+	if page.ID != "page-docs" {
+		t.Fatalf("expected docs page by id, got %q", page.ID)
 	}
 }

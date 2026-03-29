@@ -24,6 +24,7 @@ type pagesFlow struct {
 	cookies    string
 	pages      []webflow.Page
 	created    webflow.Page
+	target     webflow.Page
 }
 
 type generatedPageInfo struct {
@@ -36,6 +37,15 @@ type pageSummary struct {
 	ID    string `json:"id"`
 	Slug  string `json:"slug"`
 	Title string `json:"title"`
+}
+
+type pageInspection struct {
+	ID               string   `json:"id"`
+	Slug             string   `json:"slug"`
+	Title            string   `json:"title"`
+	PostBodyBytes    int      `json:"postBodyBytes"`
+	HasCustomCode    bool     `json:"hasCustomCode"`
+	ManagedScriptIDs []string `json:"managedScriptIds,omitempty"`
 }
 
 func newPagesFlow(c *cli.Context) *pagesFlow {
@@ -156,6 +166,82 @@ func (f *pagesFlow) runTypes() error {
 	return nil
 }
 
+func (f *pagesFlow) runInspect() error {
+	if err := f.loadConfig(); err != nil {
+		return err
+	}
+	f.printHeader("Inspect Page")
+	if err := f.authenticate(); err != nil {
+		return err
+	}
+	if err := f.loadPages(); err != nil {
+		return err
+	}
+
+	page, err := f.resolveTargetPage()
+	if err != nil {
+		return err
+	}
+	f.target = page
+
+	inspection := inspectPage(page)
+	if f.cliContext.Bool("json") {
+		return printJSON(inspection)
+	}
+
+	utils.PrintSection("Page")
+	utils.PrintStatus("INFO", displayValue(inspection.Slug), displayValue(inspection.Title))
+	utils.PrintKeyValue("Page ID", inspection.ID)
+	utils.PrintKeyValue("Custom code", map[bool]string{true: "yes", false: "no"}[inspection.HasCustomCode])
+	utils.PrintKeyValue("postBody bytes", fmt.Sprintf("%d", inspection.PostBodyBytes))
+	if len(inspection.ManagedScriptIDs) > 0 {
+		utils.PrintKeyValue("Managed scripts", strings.Join(inspection.ManagedScriptIDs, ", "))
+	}
+	fmt.Println()
+	return nil
+}
+
+func (f *pagesFlow) runDelete() error {
+	if err := f.loadConfig(); err != nil {
+		return err
+	}
+	f.printHeader("Delete Page")
+	if err := f.authenticate(); err != nil {
+		return err
+	}
+	if err := f.loadPages(); err != nil {
+		return err
+	}
+
+	page, err := f.resolveTargetPage()
+	if err != nil {
+		return err
+	}
+	f.target = page
+
+	if !f.cliContext.Bool("yes") {
+		return fmt.Errorf("refusing to delete page %q without --yes", developerPageSlug(page))
+	}
+
+	if err := utils.RunTask("Delete page in Webflow", func() error {
+		return webflow.DeletePage(f.cliContext.Context, f.baseURL, f.token, f.cookies, page.ID)
+	}); err != nil {
+		return err
+	}
+
+	utils.PrintSuccessScreen(
+		"Page deleted",
+		"The Webflow page was deleted successfully.",
+		[]utils.SummaryMetric{
+			{Label: "Slug", Value: developerPageSlug(page), Tone: "success"},
+			{Label: "Page ID", Value: page.ID, Tone: "info"},
+		},
+		"wfkit pages list",
+		"wfkit pages types",
+	)
+	return nil
+}
+
 func (f *pagesFlow) loadConfig() error {
 	cfg, err := config.ReadConfig()
 	if err != nil {
@@ -196,6 +282,32 @@ func (f *pagesFlow) loadPages() error {
 		f.pages = pages
 		return nil
 	})
+}
+
+func (f *pagesFlow) resolveTargetPage() (webflow.Page, error) {
+	id := strings.TrimSpace(f.cliContext.String("id"))
+	slug := strings.TrimSpace(f.cliContext.String("slug"))
+	switch {
+	case id != "" && slug != "":
+		return webflow.Page{}, fmt.Errorf("pass either --id or --slug, not both")
+	case id == "" && slug == "":
+		return webflow.Page{}, fmt.Errorf("missing page selector: pass --id or --slug")
+	case id != "":
+		for _, page := range f.pages {
+			if strings.TrimSpace(page.ID) == id {
+				return page, nil
+			}
+		}
+		return webflow.Page{}, fmt.Errorf("no Webflow page found with id %q", id)
+	default:
+		slug = normalizePageSlug(slug)
+		for _, page := range f.pages {
+			if developerPageSlug(page) == slug {
+				return page, nil
+			}
+		}
+		return webflow.Page{}, fmt.Errorf("no Webflow page found with slug %q", slug)
+	}
 }
 
 func writePagesTypesFile(output string, pages []webflow.Page) error {
@@ -339,4 +451,44 @@ func pageSummaries(pages []webflow.Page) []pageSummary {
 		})
 	}
 	return summaries
+}
+
+func inspectPage(page webflow.Page) pageInspection {
+	postBody := strings.TrimSpace(page.PostBody)
+	return pageInspection{
+		ID:               page.ID,
+		Slug:             developerPageSlug(page),
+		Title:            page.Title,
+		PostBodyBytes:    len(page.PostBody),
+		HasCustomCode:    postBody != "",
+		ManagedScriptIDs: managedScriptIDs(page.PostBody),
+	}
+}
+
+var managedScriptIDPattern = regexp.MustCompile(`data-script-id=["']([^"']+)["']`)
+
+func managedScriptIDs(postBody string) []string {
+	matches := managedScriptIDPattern.FindAllStringSubmatch(postBody, -1)
+	if len(matches) == 0 {
+		return nil
+	}
+
+	seen := make(map[string]struct{}, len(matches))
+	var ids []string
+	for _, match := range matches {
+		if len(match) < 2 {
+			continue
+		}
+		id := strings.TrimSpace(match[1])
+		if id == "" {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	return ids
 }

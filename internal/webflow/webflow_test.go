@@ -144,3 +144,41 @@ func TestCreateStaticPageReturnsHelpfulDecodeError(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+func TestDeletePageUsesDeleteEndpoint(t *testing.T) {
+	t.Helper()
+
+	var requestedMethod string
+	var requestedPath string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestedMethod = r.Method
+		requestedPath = r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"msg":"ok","code":200}`)
+	}))
+	defer server.Close()
+
+	targetURL, err := url.Parse(server.URL)
+	if err != nil {
+		t.Fatalf("parse server url: %v", err)
+	}
+
+	originalClient := httpClient
+	httpClient = &http.Client{
+		Timeout:   5 * time.Second,
+		Transport: rewriteTransport{target: targetURL, base: server.Client().Transport},
+	}
+	defer func() { httpClient = originalClient }()
+
+	if err := DeletePage(context.Background(), server.URL, "token", "cookie=value", "page-123"); err != nil {
+		t.Fatalf("DeletePage returned error: %v", err)
+	}
+
+	if requestedMethod != http.MethodDelete {
+		t.Fatalf("expected DELETE method, got %s", requestedMethod)
+	}
+	if requestedPath != "/api/pages/page-123" {
+		t.Fatalf("expected /api/pages/page-123 path, got %q", requestedPath)
+	}
+}

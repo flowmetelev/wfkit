@@ -417,6 +417,52 @@ func InitializePageSecrets(ctx context.Context, baseURL, token, cookies, pageID,
 	return nil
 }
 
+// DeletePage removes a static page from the site.
+func DeletePage(ctx context.Context, baseURL, token, cookies, pageID string) error {
+	url := fmt.Sprintf(pageApiUrl, baseURL, pageID)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create DELETE request: %w", err)
+	}
+	setupRequestHeaders(req, cookies)
+	req.Header.Set("x-xsrf-token", token)
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to execute DELETE request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		body, _ := io.ReadAll(resp.Body)
+		apiErr := parseAPIError(http.MethodDelete, resp.StatusCode, body)
+		if isIncompatibleClientVersionError(apiErr) {
+			InvalidateAuthCache(baseURL)
+			refreshedToken, refreshedCookies, refreshErr := GetCsrfTokenAndCookies(ctx, baseURL)
+			if refreshErr == nil {
+				req, retryReqErr := http.NewRequestWithContext(ctx, http.MethodDelete, url, nil)
+				if retryReqErr == nil {
+					setupRequestHeaders(req, refreshedCookies)
+					req.Header.Set("x-xsrf-token", refreshedToken)
+					resp, err := httpClient.Do(req)
+					if err == nil {
+						defer resp.Body.Close()
+						if resp.StatusCode < 400 {
+							return nil
+						}
+						body, _ = io.ReadAll(resp.Body)
+						apiErr = parseAPIError(http.MethodDelete, resp.StatusCode, body)
+					}
+				}
+			}
+		}
+		return fmt.Errorf("failed to delete page %s: %w", pageID, apiErr)
+	}
+
+	return nil
+}
+
 // PutFullPageObject обновляет страницу сайта.
 func PutFullPageObject(ctx context.Context, baseUrl, token, cookies string, page Page) error {
 	url := fmt.Sprintf(pageApiUrl, baseUrl, page.ID)

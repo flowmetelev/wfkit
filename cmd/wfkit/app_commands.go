@@ -48,6 +48,26 @@ func buildPagesCommand() *cli.Command {
 				},
 				Action: pagesTypesMode,
 			},
+			{
+				Name:  "inspect",
+				Usage: "Inspect one Webflow page by slug or page id",
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "slug", Usage: "Page slug to inspect"},
+					&cli.StringFlag{Name: "id", Usage: "Page id to inspect"},
+					&cli.BoolFlag{Name: "json", Usage: "Print the page as JSON"},
+				},
+				Action: pagesInspectMode,
+			},
+			{
+				Name:  "delete",
+				Usage: "Delete one Webflow page by slug or page id",
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "slug", Usage: "Page slug to delete"},
+					&cli.StringFlag{Name: "id", Usage: "Page id to delete"},
+					&cli.BoolFlag{Name: "yes", Usage: "Delete without an extra safety prompt"},
+				},
+				Action: pagesDeleteMode,
+			},
 		},
 	}
 }

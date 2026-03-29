@@ -13,3 +13,11 @@ func pagesCreateMode(c *cli.Context) error {
 func pagesTypesMode(c *cli.Context) error {
 	return newPagesFlow(c).runTypes()
 }
+
+func pagesInspectMode(c *cli.Context) error {
+	return newPagesFlow(c).runInspect()
+}
+
+func pagesDeleteMode(c *cli.Context) error {
+	return newPagesFlow(c).runDelete()
+}
