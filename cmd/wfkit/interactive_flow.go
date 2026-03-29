@@ -74,14 +74,13 @@ func (f *interactiveFlow) printProjectSummary() {
 	}
 
 	utils.PrintSection("Project")
-	utils.PrintStatus("INFO", displayValue(cfg.AppName), displayValue(cfg.EffectiveSiteURL()))
-	utils.PrintSummary(
-		utils.SummaryMetric{Label: "pkg", Value: displayValue(cfg.PackageManager), Tone: "info"},
-		utils.SummaryMetric{Label: "delivery", Value: displayValue(cfg.DeliveryMode), Tone: "info"},
-		utils.SummaryMetric{Label: "assets", Value: displayValue(cfg.AssetBranch), Tone: "info"},
-		utils.SummaryMetric{Label: "docs", Value: displayValue(cfg.DocsPageSlug), Tone: "info"},
-	)
-	utils.PrintStatus("INFO", "Build", displayValue(cfg.BuildDir))
+	utils.PrintKeyValue("App", displayValue(cfg.AppName))
+	utils.PrintKeyValue("Site", displayValue(cfg.EffectiveSiteURL()))
+	utils.PrintKeyValue("Package", displayValue(cfg.PackageManager))
+	utils.PrintKeyValue("Delivery", displayValue(cfg.DeliveryMode))
+	utils.PrintKeyValue("Assets", displayValue(cfg.AssetBranch))
+	utils.PrintKeyValue("Docs", displayValue(cfg.DocsPageSlug))
+	utils.PrintKeyValue("Build", displayValue(cfg.BuildDir))
 	fmt.Println()
 }
 
