@@ -12,6 +12,17 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+func TestInteractiveActionOptionsIncludePagesManagement(t *testing.T) {
+	options := interactiveActionOptions()
+	for _, option := range options {
+		if option.Key == "Manage pages" && option.Value == "pages" {
+			return
+		}
+	}
+
+	t.Fatal("expected interactive action options to include Manage pages")
+}
+
 func TestPreferredDevScriptPrefersDedicatedViteScript(t *testing.T) {
 	script := preferredDevScript(map[string]string{
 		"dev":      "wfkit proxy",
