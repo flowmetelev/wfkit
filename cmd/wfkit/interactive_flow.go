@@ -14,6 +14,7 @@ import (
 
 type interactiveFlow struct {
 	cliContext *cli.Context
+	category   string
 	action     string
 }
 
@@ -25,18 +26,28 @@ func (f *interactiveFlow) run() error {
 	for {
 		f.printHeader()
 
-		if err := f.selectAction(); err != nil {
+		if err := f.selectCategory(); err != nil {
 			return err
 		}
 
-		if f.action == "exit" {
+		if f.category == "exit" {
 			utils.CPrint("Goodbye!", "cyan")
 			return nil
 		}
 
-		utils.ClearScreen()
-		if err := f.dispatch(); err != nil {
-			return err
+		for {
+			utils.ClearScreen()
+			f.printHeader()
+			if err := f.selectAction(); err != nil {
+				return err
+			}
+			if f.action == "back" {
+				break
+			}
+			utils.ClearScreen()
+			if err := f.dispatch(); err != nil {
+				return err
+			}
 		}
 	}
 }
@@ -79,13 +90,25 @@ func (f *interactiveFlow) printUpdateNotice(currentVersion, latestVersion string
 	fmt.Println()
 }
 
+func (f *interactiveFlow) selectCategory() error {
+	return huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("Categories").
+				Description("Choose a category first. Esc or Ctrl+C exits.").
+				Options(interactiveCategoryOptions()...).
+				Value(&f.category),
+		),
+	).Run()
+}
+
 func (f *interactiveFlow) selectAction() error {
 	return huh.NewForm(
 		huh.NewGroup(
 			huh.NewSelect[string]().
-				Title("Actions").
-				Description("Type to filter. Enter selects. Esc or Ctrl+C exits.").
-				Options(interactiveActionOptions()...).
+				Title(categoryTitle(f.category)).
+				Description("Type to filter. Enter selects. Esc returns to the previous screen.").
+				Options(interactiveActionOptions(f.category)...).
 				Value(&f.action),
 		),
 	).Run()
@@ -122,21 +145,70 @@ func (f *interactiveFlow) dispatch() error {
 	}
 }
 
-func interactiveActionOptions() []huh.Option[string] {
+func interactiveCategoryOptions() []huh.Option[string] {
 	return []huh.Option[string]{
-		huh.NewOption("Proxy local site", "proxy_dev"),
-		huh.NewOption("Publish code", "publish"),
-		huh.NewOption("Publish docs", "docs"),
-		huh.NewOption("Migrate code", "migrate"),
-		huh.NewOption("Manage pages", "pages"),
-		huh.NewOption("Manage CMS", "cms"),
-		huh.NewOption("Run doctor", "doctor"),
-		huh.NewOption("Initialize project", "init"),
-		huh.NewOption("Configure CLI defaults", "config"),
-		huh.NewOption("Check for updates", "update"),
-		huh.NewOption("Report a bug", "report_bug"),
-		huh.NewOption("Request a feature", "request_feature"),
+		huh.NewOption("Develop", "develop"),
+		huh.NewOption("Ship", "ship"),
+		huh.NewOption("Content", "content"),
+		huh.NewOption("Project", "project"),
+		huh.NewOption("Support", "support"),
 		huh.NewOption("Exit", "exit"),
+	}
+}
+
+func interactiveActionOptions(category string) []huh.Option[string] {
+	switch category {
+	case "develop":
+		return []huh.Option[string]{
+			huh.NewOption("Proxy local site", "proxy_dev"),
+			huh.NewOption("Run doctor", "doctor"),
+			huh.NewOption("Back", "back"),
+		}
+	case "ship":
+		return []huh.Option[string]{
+			huh.NewOption("Publish code", "publish"),
+			huh.NewOption("Publish docs", "docs"),
+			huh.NewOption("Migrate code", "migrate"),
+			huh.NewOption("Back", "back"),
+		}
+	case "content":
+		return []huh.Option[string]{
+			huh.NewOption("Manage pages", "pages"),
+			huh.NewOption("Manage CMS", "cms"),
+			huh.NewOption("Back", "back"),
+		}
+	case "project":
+		return []huh.Option[string]{
+			huh.NewOption("Initialize project", "init"),
+			huh.NewOption("Configure defaults", "config"),
+			huh.NewOption("Back", "back"),
+		}
+	case "support":
+		return []huh.Option[string]{
+			huh.NewOption("Check for updates", "update"),
+			huh.NewOption("Report a bug", "report_bug"),
+			huh.NewOption("Request a feature", "request_feature"),
+			huh.NewOption("Back", "back"),
+		}
+	default:
+		return []huh.Option[string]{huh.NewOption("Back", "back")}
+	}
+}
+
+func categoryTitle(category string) string {
+	switch category {
+	case "develop":
+		return "Develop"
+	case "ship":
+		return "Ship"
+	case "content":
+		return "Content"
+	case "project":
+		return "Project"
+	case "support":
+		return "Support"
+	default:
+		return "Actions"
 	}
 }
 

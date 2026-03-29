@@ -13,7 +13,7 @@ import (
 )
 
 func TestInteractiveActionOptionsIncludePagesManagement(t *testing.T) {
-	options := interactiveActionOptions()
+	options := interactiveActionOptions("content")
 	foundPages := false
 	foundCMS := false
 	for _, option := range options {
@@ -30,6 +30,23 @@ func TestInteractiveActionOptionsIncludePagesManagement(t *testing.T) {
 	}
 	if !foundCMS {
 		t.Fatal("expected interactive action options to include Manage CMS")
+	}
+}
+
+func TestInteractiveCategoryOptionsIncludeContentAndSupport(t *testing.T) {
+	options := interactiveCategoryOptions()
+	foundContent := false
+	foundSupport := false
+	for _, option := range options {
+		if option.Key == "Content" && option.Value == "content" {
+			foundContent = true
+		}
+		if option.Key == "Support" && option.Value == "support" {
+			foundSupport = true
+		}
+	}
+	if !foundContent || !foundSupport {
+		t.Fatalf("unexpected category options: %#v", options)
 	}
 }
 
