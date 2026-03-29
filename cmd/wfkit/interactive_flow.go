@@ -151,7 +151,9 @@ func interactiveCategoryOptions() []huh.Option[string] {
 		huh.NewOption("Ship", "ship"),
 		huh.NewOption("Content", "content"),
 		huh.NewOption("Project", "project"),
-		huh.NewOption("Support", "support"),
+		huh.NewOption("Check for updates", "update"),
+		huh.NewOption("Request a feature", "request_feature"),
+		huh.NewOption("Report a bug", "report_bug"),
 		huh.NewOption("Exit", "exit"),
 	}
 }
@@ -183,13 +185,6 @@ func interactiveActionOptions(category string) []huh.Option[string] {
 			huh.NewOption("Configure defaults", "config"),
 			huh.NewOption("Back", "back"),
 		}
-	case "support":
-		return []huh.Option[string]{
-			huh.NewOption("Check for updates", "update"),
-			huh.NewOption("Request a feature", "request_feature"),
-			huh.NewOption("Report a bug", "report_bug"),
-			huh.NewOption("Back", "back"),
-		}
 	default:
 		return []huh.Option[string]{huh.NewOption("Back", "back")}
 	}
@@ -205,8 +200,12 @@ func categoryTitle(category string) string {
 		return "Content"
 	case "project":
 		return "Project"
-	case "support":
-		return "Support"
+	case "update":
+		return "Check for updates"
+	case "request_feature":
+		return "Request a feature"
+	case "report_bug":
+		return "Report a bug"
 	default:
 		return "Actions"
 	}

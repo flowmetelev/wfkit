@@ -36,16 +36,16 @@ func TestInteractiveActionOptionsIncludePagesManagement(t *testing.T) {
 func TestInteractiveCategoryOptionsIncludeContentAndSupport(t *testing.T) {
 	options := interactiveCategoryOptions()
 	foundContent := false
-	foundSupport := false
+	foundUpdate := false
 	for _, option := range options {
 		if option.Key == "Content" && option.Value == "content" {
 			foundContent = true
 		}
-		if option.Key == "Support" && option.Value == "support" {
-			foundSupport = true
+		if option.Key == "Check for updates" && option.Value == "update" {
+			foundUpdate = true
 		}
 	}
-	if !foundContent || !foundSupport {
+	if !foundContent || !foundUpdate {
 		t.Fatalf("unexpected category options: %#v", options)
 	}
 }
