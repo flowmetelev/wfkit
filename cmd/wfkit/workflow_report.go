@@ -33,15 +33,19 @@ func printPublishTimeline(env string, byPage, dryRun, authed, built, pushed, pub
 	}...)
 }
 
-func printMigrateTimeline(dryRun, authed, loadedPages, loadedGlobal, wroteFiles, built, pushed, published bool) {
+func printMigrateTimeline(dryRun, willPublish, authed, loadedPages, loadedGlobal, plannedFiles, built, pushed, published bool) {
+	buildSkipped := dryRun || !willPublish
+	pushSkipped := dryRun || !willPublish
+	publishSkipped := dryRun || !willPublish
+
 	utils.PrintTimeline("Workflow", []utils.TimelineStep{
 		{Label: "Authenticate with Webflow", Status: timelineStatus(authed, false), Details: timelineDetails(authed, "session ready")},
 		{Label: "Load pages", Status: timelineStatus(loadedPages, false), Details: timelineDetails(loadedPages, "page metadata ready")},
 		{Label: "Load global code", Status: timelineStatus(loadedGlobal, false), Details: timelineDetails(loadedGlobal, "global custom code ready")},
-		{Label: "Write migration files", Status: timelineStatus(wroteFiles, dryRun), Details: timelineDetails(wroteFiles, "local entries generated")},
-		{Label: "Build assets", Status: timelineStatus(built, dryRun), Details: timelineDetails(built, "manifest ready")},
-		{Label: "Push to GitHub", Status: timelineStatus(pushed, dryRun), Details: timelineDetails(pushed, "git synced")},
-		{Label: "Update Webflow", Status: timelineStatus(published, dryRun), Details: timelineDetails(published, "cdn links published")},
+		{Label: "Write migration files", Status: timelineStatus(plannedFiles, dryRun), Details: timelineDetails(plannedFiles, "local files updated")},
+		{Label: "Build assets", Status: timelineStatus(built, buildSkipped), Details: timelineDetails(built, "manifest ready")},
+		{Label: "Push to GitHub", Status: timelineStatus(pushed, pushSkipped), Details: timelineDetails(pushed, "git synced")},
+		{Label: "Update Webflow", Status: timelineStatus(published, publishSkipped), Details: timelineDetails(published, "cdn links published")},
 	}...)
 }
 

@@ -229,11 +229,25 @@ wfkit migrate
 What `migrate` does:
 
 - reads page-level inline scripts from Webflow
-- creates page files using page slugs, for example `src/pages/about/index.js`
-- moves migratable global inline code into `src/global/modules/webflow.migrated.js`
-- builds the project and publishes managed jsDelivr script references back to Webflow
+- creates page migration modules using page slugs, for example `src/pages/about/webflow.migrated.ts`
+- wires those migrated modules into the local page entry, for example `src/pages/about/index.ts`
+- moves migratable global inline code into `src/global/modules/webflow.migrated.ts`
+- leaves publishing as a separate explicit step so you can review the diff first
 
 Use `--force` if a target page or global migration file already exists and you want to overwrite it.
+
+If you want the old one-shot behavior after writing local files, run:
+
+```bash
+wfkit migrate --publish
+```
+
+That extended flow:
+
+1. writes the migrated local files
+2. builds the project
+3. pushes the artifact branch
+4. updates Webflow to the new jsDelivr URLs
 
 ## Release the CLI
 
@@ -378,18 +392,19 @@ Options:
 
 ### `wfkit migrate`
 
-Migrate inline Webflow custom code into local source files and publish managed script references back to Webflow.
+Migrate inline Webflow custom code into local source files.
 
 Options:
 
 - `--dry-run` Show the migration plan without writing files or updating Webflow
 - `--force` Overwrite existing generated migration targets
+- `--publish` After writing local files, build assets, push the artifact branch, and update Webflow
 - `--custom-commit` Custom Git commit message for the generated migration publish
 - `--asset-branch` Git branch used for published build artifacts and jsDelivr URLs
 - `--build-dir` Build output directory
 - `--notify` Show a desktop notification and play a sound when finished
 
-`wfkit publish` and `wfkit migrate` publish only the built files in `buildDir` to the asset branch. They don't commit or push your working tree source files.
+`wfkit publish` always publishes only the built files in `buildDir` to the asset branch. `wfkit migrate --publish` uses that same artifact-only flow. Neither command commits or pushes your working tree source files.
 
 ### `wfkit update`
 
