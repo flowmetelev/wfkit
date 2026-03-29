@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"wfkit/internal/build"
+	"wfkit/internal/config"
 	"wfkit/internal/utils"
 
 	"github.com/urfave/cli/v2"
@@ -81,6 +82,21 @@ func resolveBoolFlag(c *cli.Context, name string, fallback bool) bool {
 		return c.Bool(name)
 	}
 	return fallback
+}
+
+func boolString(value bool) string {
+	if value {
+		return "true"
+	}
+	return "false"
+}
+
+func siteURLFromParentContext(parent *cli.Context) string {
+	cfg, err := config.ReadConfig()
+	if err != nil {
+		return ""
+	}
+	return cfg.EffectiveSiteURL()
 }
 
 func printGitPushSummary(result build.GitPushResult) {

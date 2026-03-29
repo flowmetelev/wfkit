@@ -3,8 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
+	"strings"
 
 	"wfkit/internal/utils"
+	"wfkit/internal/webflow"
 
 	"github.com/charmbracelet/huh"
 	"github.com/urfave/cli/v2"
@@ -13,10 +15,8 @@ import (
 type interactivePagesFlow struct {
 	parent     *cli.Context
 	action     string
-	lookupMode string
 	name       string
 	slug       string
-	pageID     string
 	output     string
 	jsonOutput bool
 	writeTypes bool
@@ -26,18 +26,24 @@ type interactivePagesFlow struct {
 func newInteractivePagesFlow(parent *cli.Context) *interactivePagesFlow {
 	return &interactivePagesFlow{
 		parent:     parent,
-		lookupMode: "slug",
 		output:     "src/generated/wfkit-pages.ts",
 		writeTypes: true,
 	}
 }
 
 func (f *interactivePagesFlow) run() error {
-	if err := f.selectAction(); err != nil {
-		return err
+	for {
+		if err := f.selectAction(); err != nil {
+			return err
+		}
+		utils.ClearScreen()
+		if f.action == "back" {
+			return nil
+		}
+		if err := f.dispatch(); err != nil {
+			return err
+		}
 	}
-	utils.ClearScreen()
-	return f.dispatch()
 }
 
 func (f *interactivePagesFlow) selectAction() error {
@@ -50,6 +56,7 @@ func (f *interactivePagesFlow) selectAction() error {
 					huh.NewOption("Create page", "create"),
 					huh.NewOption("Inspect page", "inspect"),
 					huh.NewOption("Delete page", "delete"),
+					huh.NewOption("Open page", "open"),
 					huh.NewOption("Generate page types", "types"),
 					huh.NewOption("Back", "back"),
 				).
@@ -61,31 +68,18 @@ func (f *interactivePagesFlow) selectAction() error {
 func (f *interactivePagesFlow) dispatch() error {
 	switch f.action {
 	case "list":
-		return pagesListMode(f.newContext(nil, nil))
+		return f.browsePages()
 	case "create":
 		if err := f.collectCreateInput(); err != nil {
 			return err
 		}
-		return pagesCreateMode(f.newContext(
-			map[string]string{"name": f.name, "slug": f.slug, "output": f.output},
-			map[string]bool{"types": f.writeTypes, "json": f.jsonOutput},
-		))
+		return f.runCreateFlow()
 	case "inspect":
-		if err := f.collectInspectInput(); err != nil {
-			return err
-		}
-		return pagesInspectMode(f.newContext(
-			f.pageSelectorFlags(),
-			map[string]bool{"json": f.jsonOutput},
-		))
+		return f.inspectPageFromList()
 	case "delete":
-		if err := f.collectDeleteInput(); err != nil {
-			return err
-		}
-		return pagesDeleteMode(f.newContext(
-			f.pageSelectorFlags(),
-			map[string]bool{"yes": f.confirmed},
-		))
+		return f.deletePageFromList()
+	case "open":
+		return f.openPageFromList()
 	case "types":
 		if err := f.collectTypesInput(); err != nil {
 			return err
@@ -94,10 +88,58 @@ func (f *interactivePagesFlow) dispatch() error {
 			map[string]string{"output": f.output},
 			nil,
 		))
-	case "back":
-		return interactiveMode(f.parent)
 	default:
 		return nil
+	}
+}
+
+func (f *interactivePagesFlow) runCreateFlow() error {
+	if err := pagesCreateMode(f.newContext(
+		map[string]string{"name": f.name, "slug": f.slug, "output": f.output},
+		map[string]bool{"types": f.writeTypes, "json": f.jsonOutput},
+	)); err != nil {
+		return err
+	}
+
+	targetSlug := strings.TrimSpace(f.slug)
+	if targetSlug == "" {
+		targetSlug = normalizePageSlug(f.name)
+	}
+	if targetSlug == "" {
+		return nil
+	}
+
+	for {
+		var action string
+		if err := huh.NewForm(
+			huh.NewGroup(
+				huh.NewSelect[string]().
+					Title(fmt.Sprintf("Page %q created. What next?", targetSlug)).
+					Options(
+						huh.NewOption("Inspect created page", "inspect"),
+						huh.NewOption("Open published page", "open"),
+						huh.NewOption("Back to page management", "back"),
+					).
+					Value(&action),
+			),
+		).Run(); err != nil {
+			return err
+		}
+
+		switch action {
+		case "inspect":
+			if err := pagesInspectMode(f.newContext(map[string]string{"slug": targetSlug}, nil)); err != nil {
+				return err
+			}
+		case "open":
+			if err := pagesOpenMode(f.newContext(map[string]string{"slug": targetSlug}, nil)); err != nil {
+				return err
+			}
+		case "back":
+			return nil
+		default:
+			return nil
+		}
 	}
 }
 
@@ -119,83 +161,6 @@ func (f *interactivePagesFlow) collectCreateInput() error {
 	).Run()
 }
 
-func (f *interactivePagesFlow) collectInspectInput() error {
-	if err := huh.NewForm(
-		huh.NewGroup(
-			huh.NewSelect[string]().
-				Title("Find page by").
-				Options(
-					huh.NewOption("Slug", "slug"),
-					huh.NewOption("Page ID", "id"),
-				).
-				Value(&f.lookupMode),
-			huh.NewConfirm().
-				Title("Print JSON output?").
-				Value(&f.jsonOutput),
-		),
-	).Run(); err != nil {
-		return err
-	}
-
-	if f.lookupMode == "id" {
-		return huh.NewInput().
-			Title("Page ID").
-			Description("For example: 69c924814b191f0b01fc6156").
-			Value(&f.pageID).
-			Run()
-	}
-
-	return huh.NewInput().
-		Title("Slug").
-		Description("For example: docs").
-		Value(&f.slug).
-		Run()
-}
-
-func (f *interactivePagesFlow) collectDeleteInput() error {
-	if err := huh.NewForm(
-		huh.NewGroup(
-			huh.NewSelect[string]().
-				Title("Delete page by").
-				Options(
-					huh.NewOption("Slug", "slug"),
-					huh.NewOption("Page ID", "id"),
-				).
-				Value(&f.lookupMode),
-		),
-	).Run(); err != nil {
-		return err
-	}
-
-	if f.lookupMode == "id" {
-		if err := huh.NewInput().
-			Title("Page ID").
-			Description("For example: 69c924814b191f0b01fc6156").
-			Value(&f.pageID).
-			Run(); err != nil {
-			return err
-		}
-	} else {
-		if err := huh.NewInput().
-			Title("Slug").
-			Description("For example: docs").
-			Value(&f.slug).
-			Run(); err != nil {
-			return err
-		}
-	}
-
-	target := f.slug
-	if f.lookupMode == "id" {
-		target = f.pageID
-	}
-	return huh.NewConfirm().
-		Title(fmt.Sprintf("Delete %q from Webflow?", target)).
-		Description("This removes the page from the site.").
-		Value(&f.confirmed).
-		Run()
-}
-
 func (f *interactivePagesFlow) collectTypesInput() error {
 	return huh.NewForm(
 		huh.NewGroup(
@@ -205,13 +170,6 @@ func (f *interactivePagesFlow) collectTypesInput() error {
 				Value(&f.output),
 		),
 	).Run()
-}
-
-func (f *interactivePagesFlow) pageSelectorFlags() map[string]string {
-	if f.lookupMode == "id" {
-		return map[string]string{"id": f.pageID}
-	}
-	return map[string]string{"slug": f.slug}
 }
 
 func (f *interactivePagesFlow) newContext(stringFlags map[string]string, boolFlags map[string]bool) *cli.Context {
@@ -232,4 +190,167 @@ func (f *interactivePagesFlow) newContext(stringFlags map[string]string, boolFla
 		_ = ctx.Set(name, fmt.Sprintf("%t", value))
 	}
 	return ctx
+}
+
+func (f *interactivePagesFlow) browsePages() error {
+	for {
+		page, ok, err := f.selectPage("Select a page")
+		if err != nil || !ok {
+			return err
+		}
+
+		var action string
+		if err := huh.NewForm(
+			huh.NewGroup(
+				huh.NewSelect[string]().
+					Title(fmt.Sprintf("Page: %s", pageOptionLabel(page))).
+					Options(
+						huh.NewOption("Inspect page", "inspect"),
+						huh.NewOption("Open published page", "open"),
+						huh.NewOption("Delete page", "delete"),
+						huh.NewOption("Back to page list", "back"),
+					).
+					Value(&action),
+			),
+		).Run(); err != nil {
+			return err
+		}
+
+		switch action {
+		case "inspect":
+			if err := pagesInspectMode(f.newContext(map[string]string{"id": page.ID}, nil)); err != nil {
+				return err
+			}
+		case "open":
+			if err := pagesOpenMode(f.newContext(map[string]string{"id": page.ID}, nil)); err != nil {
+				return err
+			}
+		case "delete":
+			confirmed := false
+			if err := huh.NewConfirm().
+				Title(fmt.Sprintf("Delete %q from Webflow?", pageOptionLabel(page))).
+				Description("This removes the page from the site.").
+				Value(&confirmed).
+				Run(); err != nil {
+				return err
+			}
+			if !confirmed {
+				continue
+			}
+			if err := pagesDeleteMode(f.newContext(map[string]string{"id": page.ID}, map[string]bool{"yes": true})); err != nil {
+				return err
+			}
+		case "back":
+			continue
+		}
+	}
+}
+
+func (f *interactivePagesFlow) inspectPageFromList() error {
+	printJSON := false
+	if err := huh.NewConfirm().
+		Title("Print JSON output?").
+		Value(&printJSON).
+		Run(); err != nil {
+		return err
+	}
+
+	page, ok, err := f.selectPage("Inspect page")
+	if err != nil || !ok {
+		return err
+	}
+	return pagesInspectMode(f.newContext(map[string]string{"id": page.ID}, map[string]bool{"json": printJSON}))
+}
+
+func (f *interactivePagesFlow) deletePageFromList() error {
+	page, ok, err := f.selectPage("Delete page")
+	if err != nil || !ok {
+		return err
+	}
+
+	confirmed := false
+	if err := huh.NewConfirm().
+		Title(fmt.Sprintf("Delete %q from Webflow?", pageOptionLabel(page))).
+		Description("This removes the page from the site.").
+		Value(&confirmed).
+		Run(); err != nil {
+		return err
+	}
+	if !confirmed {
+		return nil
+	}
+
+	return pagesDeleteMode(f.newContext(map[string]string{"id": page.ID}, map[string]bool{"yes": true}))
+}
+
+func (f *interactivePagesFlow) openPageFromList() error {
+	page, ok, err := f.selectPage("Open page")
+	if err != nil || !ok {
+		return err
+	}
+	return pagesOpenMode(f.newContext(map[string]string{"id": page.ID}, nil))
+}
+
+func (f *interactivePagesFlow) selectPage(title string) (webflow.Page, bool, error) {
+	pages, err := f.fetchPages()
+	if err != nil {
+		return webflow.Page{}, false, err
+	}
+	if len(pages) == 0 {
+		utils.PrintStatus("WARN", "Pages", "No Webflow pages were found for this site.")
+		fmt.Println()
+		return webflow.Page{}, false, nil
+	}
+
+	selected := ""
+	options := interactivePageOptions(pages)
+	if err := huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title(title).
+				Options(options...).
+				Value(&selected),
+		),
+	).Run(); err != nil {
+		return webflow.Page{}, false, err
+	}
+	if selected == "" {
+		return webflow.Page{}, false, nil
+	}
+
+	for _, page := range pages {
+		if page.ID == selected {
+			return page, true, nil
+		}
+	}
+
+	return webflow.Page{}, false, fmt.Errorf("failed to resolve selected page %q", selected)
+}
+
+func (f *interactivePagesFlow) fetchPages() ([]webflow.Page, error) {
+	flow := newPagesFlow(f.parent)
+	if err := flow.loadConfig(); err != nil {
+		return nil, err
+	}
+	flow.printHeader("Pages")
+	if err := flow.authenticate(); err != nil {
+		return nil, err
+	}
+	if err := flow.loadPages(); err != nil {
+		return nil, err
+	}
+	return sortPagesForOutput(flow.pages), nil
+}
+
+func interactivePageOptions(pages []webflow.Page) []huh.Option[string] {
+	options := make([]huh.Option[string], 0, len(pages)+1)
+	for _, page := range sortPagesForOutput(pages) {
+		options = append(options, huh.NewOption(pageOptionLabel(page), page.ID))
+	}
+	options = append(options, huh.NewOption("Back", ""))
+	return options
+}
+
+func pageOptionLabel(page webflow.Page) string {
+	return fmt.Sprintf("%s  %s", displayValue(developerPageSlug(page)), displayValue(strings.TrimSpace(page.Title)))
 }

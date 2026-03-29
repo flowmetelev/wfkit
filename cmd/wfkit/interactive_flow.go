@@ -20,14 +20,23 @@ func newInteractiveFlow(c *cli.Context) *interactiveFlow {
 }
 
 func (f *interactiveFlow) run() error {
-	f.printHeader()
+	for {
+		f.printHeader()
 
-	if err := f.selectAction(); err != nil {
-		return err
+		if err := f.selectAction(); err != nil {
+			return err
+		}
+
+		if f.action == "exit" {
+			utils.CPrint("Goodbye!", "cyan")
+			return nil
+		}
+
+		utils.ClearScreen()
+		if err := f.dispatch(); err != nil {
+			return err
+		}
 	}
-
-	utils.ClearScreen()
-	return f.dispatch()
 }
 
 func (f *interactiveFlow) printHeader() {
@@ -63,18 +72,17 @@ func (f *interactiveFlow) dispatch() error {
 	case "init":
 		return initMode(f.cliContext)
 	case "docs":
-		return docsMode(f.cliContext)
+		return newInteractiveDocsFlow(f.cliContext).run()
 	case "pages":
 		return newInteractivePagesFlow(f.cliContext).run()
 	case "migrate":
-		return migrateMode(f.cliContext)
-	case "publish_prod":
-		f.cliContext.Set("env", "prod")
-		return publishMode(f.cliContext)
+		return newInteractiveMigrateFlow(f.cliContext).run()
+	case "publish":
+		return newInteractivePublishFlow(f.cliContext).run()
 	case "proxy_dev":
 		return proxyMode(f.cliContext)
 	case "doctor":
-		return doctorMode(f.cliContext)
+		return newInteractiveDoctorFlow(f.cliContext).run()
 	case "config":
 		return configMode(f.cliContext)
 	case "update":
@@ -83,9 +91,6 @@ func (f *interactiveFlow) dispatch() error {
 		return openBugReport(f.cliContext)
 	case "request_feature":
 		return openFeatureRequest(f.cliContext)
-	case "exit":
-		utils.CPrint("Goodbye!", "cyan")
-		return nil
 	default:
 		return nil
 	}
@@ -119,7 +124,7 @@ func interactiveActionOptions() []huh.Option[string] {
 		huh.NewOption("Publish docs", "docs"),
 		huh.NewOption("Manage pages", "pages"),
 		huh.NewOption("Migrate page code", "migrate"),
-		huh.NewOption("Publish code to Webflow (prod)", "publish_prod"),
+		huh.NewOption("Publish code to Webflow", "publish"),
 		huh.NewOption("Start dev proxy", "proxy_dev"),
 		huh.NewOption("Run doctor", "doctor"),
 		huh.NewOption("Configure CLI defaults", "config"),

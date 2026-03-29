@@ -426,6 +426,7 @@ Subcommands:
 - `wfkit pages create --name "Docs" --slug docs` Create a static Webflow page
 - `wfkit pages inspect --slug docs` Inspect one page and its managed custom code blocks
 - `wfkit pages delete --slug docs --yes` Delete one static Webflow page
+- `wfkit pages open --slug docs` Open the published Webflow page in your browser
 - `wfkit pages types` Generate `src/generated/wfkit-pages.ts` from the current Webflow pages
 
 ### `wfkit migrate`

@@ -21,3 +21,7 @@ func pagesInspectMode(c *cli.Context) error {
 func pagesDeleteMode(c *cli.Context) error {
 	return newPagesFlow(c).runDelete()
 }
+
+func pagesOpenMode(c *cli.Context) error {
+	return newPagesFlow(c).runOpen()
+}
