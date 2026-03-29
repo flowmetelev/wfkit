@@ -242,6 +242,44 @@ func (f *pagesFlow) runDelete() error {
 	return nil
 }
 
+func (f *pagesFlow) runOpen() error {
+	if err := f.loadConfig(); err != nil {
+		return err
+	}
+	if f.config.EffectiveSiteURL() == "" {
+		return fmt.Errorf("missing site configuration: set appName or siteUrl in wfkit.json")
+	}
+	f.printHeader("Open Page")
+	if err := f.authenticate(); err != nil {
+		return err
+	}
+	if err := f.loadPages(); err != nil {
+		return err
+	}
+
+	page, err := f.resolveTargetPage()
+	if err != nil {
+		return err
+	}
+	f.target = page
+
+	targetURL := publishedPageURL(f.config.EffectiveSiteURL(), page)
+	if targetURL == "" {
+		return fmt.Errorf("failed to derive published URL for page %q", developerPageSlug(page))
+	}
+
+	if err := utils.RunTask("Open page in browser", func() error {
+		return openURL(targetURL)
+	}); err != nil {
+		return fmt.Errorf("failed to open %s: %w", targetURL, err)
+	}
+
+	utils.PrintSection("Opened Page")
+	utils.PrintStatus("OK", targetURL, displayValue(strings.TrimSpace(page.Title)))
+	fmt.Println()
+	return nil
+}
+
 func (f *pagesFlow) loadConfig() error {
 	cfg, err := config.ReadConfig()
 	if err != nil {
@@ -463,6 +501,19 @@ func inspectPage(page webflow.Page) pageInspection {
 		HasCustomCode:    postBody != "",
 		ManagedScriptIDs: managedScriptIDs(page.PostBody),
 	}
+}
+
+func publishedPageURL(siteURL string, page webflow.Page) string {
+	base := strings.TrimRight(strings.TrimSpace(siteURL), "/")
+	if base == "" {
+		return ""
+	}
+
+	slug := developerPageSlug(page)
+	if slug == "" || slug == "home" {
+		return base
+	}
+	return base + "/" + slug
 }
 
 var managedScriptIDPattern = regexp.MustCompile(`data-script-id=["']([^"']+)["']`)

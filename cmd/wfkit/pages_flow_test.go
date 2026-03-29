@@ -120,3 +120,15 @@ func TestResolveTargetPageSupportsSlugFallbackAndID(t *testing.T) {
 		t.Fatalf("expected docs page by id, got %q", page.ID)
 	}
 }
+
+func TestPublishedPageURLUsesSiteRootForHomeAndSlugForOtherPages(t *testing.T) {
+	siteURL := "https://demo.webflow.io/"
+
+	if got := publishedPageURL(siteURL, webflow.Page{Title: "Home"}); got != "https://demo.webflow.io" {
+		t.Fatalf("expected site root for home page, got %q", got)
+	}
+
+	if got := publishedPageURL(siteURL, webflow.Page{Title: "Docs", Slug: "docs"}); got != "https://demo.webflow.io/docs" {
+		t.Fatalf("expected docs page URL, got %q", got)
+	}
+}

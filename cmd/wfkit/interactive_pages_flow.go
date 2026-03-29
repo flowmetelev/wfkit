@@ -50,6 +50,7 @@ func (f *interactivePagesFlow) selectAction() error {
 					huh.NewOption("Create page", "create"),
 					huh.NewOption("Inspect page", "inspect"),
 					huh.NewOption("Delete page", "delete"),
+					huh.NewOption("Open page", "open"),
 					huh.NewOption("Generate page types", "types"),
 					huh.NewOption("Back", "back"),
 				).
@@ -85,6 +86,14 @@ func (f *interactivePagesFlow) dispatch() error {
 		return pagesDeleteMode(f.newContext(
 			f.pageSelectorFlags(),
 			map[string]bool{"yes": f.confirmed},
+		))
+	case "open":
+		if err := f.collectOpenInput(); err != nil {
+			return err
+		}
+		return pagesOpenMode(f.newContext(
+			f.pageSelectorFlags(),
+			nil,
 		))
 	case "types":
 		if err := f.collectTypesInput(); err != nil {
@@ -205,6 +214,40 @@ func (f *interactivePagesFlow) collectTypesInput() error {
 				Value(&f.output),
 		),
 	).Run()
+}
+
+func (f *interactivePagesFlow) collectOpenInput() error {
+	return f.collectPageLookupInput("Open page by")
+}
+
+func (f *interactivePagesFlow) collectPageLookupInput(title string) error {
+	if err := huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title(title).
+				Options(
+					huh.NewOption("Slug", "slug"),
+					huh.NewOption("Page ID", "id"),
+				).
+				Value(&f.lookupMode),
+		),
+	).Run(); err != nil {
+		return err
+	}
+
+	if f.lookupMode == "id" {
+		return huh.NewInput().
+			Title("Page ID").
+			Description("For example: 69c924814b191f0b01fc6156").
+			Value(&f.pageID).
+			Run()
+	}
+
+	return huh.NewInput().
+		Title("Slug").
+		Description("For example: docs").
+		Value(&f.slug).
+		Run()
 }
 
 func (f *interactivePagesFlow) pageSelectorFlags() map[string]string {

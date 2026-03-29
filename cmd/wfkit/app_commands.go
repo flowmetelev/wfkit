@@ -68,6 +68,15 @@ func buildPagesCommand() *cli.Command {
 				},
 				Action: pagesDeleteMode,
 			},
+			{
+				Name:  "open",
+				Usage: "Open a published Webflow page in your browser",
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "slug", Usage: "Page slug to open"},
+					&cli.StringFlag{Name: "id", Usage: "Page id to open"},
+				},
+				Action: pagesOpenMode,
+			},
 		},
 	}
 }
