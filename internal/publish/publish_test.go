@@ -53,6 +53,26 @@ func TestUpdateScriptForInlineEmbedsModuleCode(t *testing.T) {
 	}
 }
 
+func TestUpdateScriptForInlineReplacesExistingMultilineManagedScript(t *testing.T) {
+	input := `<script data-script-id="global-script" type="module">
+console.log("old")
+console.log("still old")
+</script>
+<div>content</div>`
+
+	got := updateScript(input, ManagedScript{Delivery: deliveryInline, Code: "console.log(\"new\")"}, globalScriptID, "prod")
+
+	if strings.Contains(got, `console.log("old")`) {
+		t.Fatalf("expected old inline managed script to be removed: %s", got)
+	}
+	if strings.Count(got, `data-script-id="global-script"`) != 1 {
+		t.Fatalf("expected exactly one managed script tag, got %s", got)
+	}
+	if !strings.Contains(got, `console.log("new")`) {
+		t.Fatalf("expected new inline managed script to be injected: %s", got)
+	}
+}
+
 func TestExtractScriptSrcHandlesDifferentAttributeOrder(t *testing.T) {
 	html := `<script src="https://cdn.example/app.js" data-script-id="global-script" defer></script>`
 

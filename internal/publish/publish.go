@@ -326,7 +326,7 @@ func extractScriptSrc(html, scriptID string) string {
 // updateScript удаляет существующий скрипт с указанным ID и добавляет новый
 func updateScript(html string, script ManagedScript, scriptID, env string) string {
 	// Remove existing script with this ID
-	re := regexp.MustCompile(fmt.Sprintf(`<script[^>]*data-script-id=["']%s["'][^>]*>.*?</script>`, scriptID))
+	re := regexp.MustCompile(fmt.Sprintf(`(?is)<script[^>]*data-script-id=["']%s["'][^>]*>.*?</script>`, regexp.QuoteMeta(scriptID)))
 	cleaned := re.ReplaceAllString(html, "")
 	cleaned = stripViteClientScript(cleaned)
 
@@ -342,7 +342,7 @@ func updateScript(html string, script ManagedScript, scriptID, env string) strin
 }
 
 func stripViteClientScript(html string) string {
-	re := regexp.MustCompile(`<script[^>]*src=["'][^"']*/@vite/client["'][^>]*>.*?</script>`)
+	re := regexp.MustCompile(`(?is)<script[^>]*src=["'][^"']*/@vite/client["'][^>]*>.*?</script>`)
 	return re.ReplaceAllString(html, "")
 }
 
