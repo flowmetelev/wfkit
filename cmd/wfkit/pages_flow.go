@@ -60,7 +60,7 @@ func (f *pagesFlow) runList() error {
 
 	utils.PrintSection("Pages")
 	for _, page := range sortPagesForOutput(f.pages) {
-		utils.PrintStatus("INFO", displayValue(page.Slug), displayValue(page.Title))
+		utils.PrintStatus("INFO", displayValue(developerPageSlug(page)), displayValue(page.Title))
 	}
 	utils.PrintSummary(utils.SummaryMetric{Label: "Pages", Value: fmt.Sprintf("%d", len(f.pages)), Tone: "info"})
 	return nil
@@ -221,8 +221,12 @@ func renderPagesTypesModule(pages []webflow.Page) string {
 	if len(infos) == 0 {
 		builder.WriteString("export const wfPages = [] as const\n")
 		builder.WriteString("export type WfPage = string\n\n")
+		builder.WriteString("export type WfGlobalSelector = keyof typeof wfGlobalSelectors\n\n")
 		builder.WriteString("export interface WfPageInfo {\n  slug: string\n  title: string\n  id?: string\n}\n\n")
-		builder.WriteString("export const wfPageInfo: Record<string, WfPageInfo> = {}\n")
+		builder.WriteString("export const wfPageInfo: Record<string, WfPageInfo> = {}\n\n")
+		builder.WriteString("export const wfPageSelectors: Record<string, string> = {}\n\n")
+		builder.WriteString("export const wfPageRootSelectors: Record<string, string> = {}\n\n")
+		builder.WriteString("export const wfGlobalSelectors = {\n  siteRoot: '[data-wf-site-root]',\n  docsRoot: '[data-wf-docs-root]'\n} as const\n")
 		return builder.String()
 	}
 
@@ -232,6 +236,7 @@ func renderPagesTypesModule(pages []webflow.Page) string {
 	}
 	builder.WriteString("] as const\n\n")
 	builder.WriteString("export type WfPage = (typeof wfPages)[number]\n\n")
+	builder.WriteString("export type WfGlobalSelector = keyof typeof wfGlobalSelectors\n\n")
 	builder.WriteString("export interface WfPageInfo {\n  slug: WfPage\n  title: string\n  id?: string\n}\n\n")
 	builder.WriteString("export const wfPageInfo: Record<WfPage, WfPageInfo> = {\n")
 	for _, page := range infos {
@@ -241,14 +246,25 @@ func renderPagesTypesModule(pages []webflow.Page) string {
 		}
 		builder.WriteString(" },\n")
 	}
-	builder.WriteString("}\n")
+	builder.WriteString("}\n\n")
+	builder.WriteString("export const wfPageSelectors: Record<WfPage, string> = {\n")
+	for _, page := range infos {
+		builder.WriteString(fmt.Sprintf("  %q: %q,\n", page.Slug, fmt.Sprintf(`[data-page="%s"]`, page.Slug)))
+	}
+	builder.WriteString("}\n\n")
+	builder.WriteString("export const wfPageRootSelectors: Record<WfPage, string> = {\n")
+	for _, page := range infos {
+		builder.WriteString(fmt.Sprintf("  %q: %q,\n", page.Slug, fmt.Sprintf("[data-wf-%s-root]", selectorToken(page.Slug))))
+	}
+	builder.WriteString("}\n\n")
+	builder.WriteString("export const wfGlobalSelectors = {\n  siteRoot: '[data-wf-site-root]',\n  docsRoot: '[data-wf-docs-root]'\n} as const\n")
 	return builder.String()
 }
 
 func pagesForTypes(pages []webflow.Page) []generatedPageInfo {
 	var infos []generatedPageInfo
 	for _, page := range pages {
-		slug := strings.TrimSpace(page.Slug)
+		slug := developerPageSlug(page)
 		if slug == "" {
 			continue
 		}
@@ -271,8 +287,8 @@ func pagesForTypes(pages []webflow.Page) []generatedPageInfo {
 func sortPagesForOutput(pages []webflow.Page) []webflow.Page {
 	sorted := append([]webflow.Page(nil), pages...)
 	sort.Slice(sorted, func(i, j int) bool {
-		left := strings.TrimSpace(sorted[i].Slug)
-		right := strings.TrimSpace(sorted[j].Slug)
+		left := developerPageSlug(sorted[i])
+		right := developerPageSlug(sorted[j])
 		if left == right {
 			return strings.TrimSpace(sorted[i].Title) < strings.TrimSpace(sorted[j].Title)
 		}
@@ -291,6 +307,18 @@ func normalizePageSlug(value string) string {
 	return strings.Trim(slug, "-")
 }
 
+func selectorToken(value string) string {
+	return normalizePageSlug(value)
+}
+
+func developerPageSlug(page webflow.Page) string {
+	slug := strings.TrimSpace(page.Slug)
+	if slug != "" {
+		return slug
+	}
+	return normalizePageSlug(page.Title)
+}
+
 func printJSON(value interface{}) error {
 	encoded, err := json.MarshalIndent(value, "", "  ")
 	if err != nil {
@@ -306,7 +334,7 @@ func pageSummaries(pages []webflow.Page) []pageSummary {
 	for _, page := range sorted {
 		summaries = append(summaries, pageSummary{
 			ID:    page.ID,
-			Slug:  page.Slug,
+			Slug:  developerPageSlug(page),
 			Title: page.Title,
 		})
 	}

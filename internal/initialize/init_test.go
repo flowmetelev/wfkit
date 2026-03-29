@@ -196,6 +196,12 @@ func TestInitProjectCreatesScaffoldInsideProjectDirectory(t *testing.T) {
 	if !strings.Contains(generatedPagesText, `'home'`) {
 		t.Fatalf("expected home slug in generated pages file, got: %s", generatedPagesText)
 	}
+	if !strings.Contains(generatedPagesText, `export const wfPageRootSelectors`) {
+		t.Fatalf("expected typed page root selectors in generated pages file, got: %s", generatedPagesText)
+	}
+	if !strings.Contains(generatedPagesText, `siteRoot: '[data-wf-site-root]'`) {
+		t.Fatalf("expected typed global selectors in generated pages file, got: %s", generatedPagesText)
+	}
 
 	readmeData, err := os.ReadFile(filepath.Join(projectDir, "README.md"))
 	if err != nil {

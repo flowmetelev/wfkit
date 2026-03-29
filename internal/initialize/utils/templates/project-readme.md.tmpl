@@ -88,7 +88,7 @@ Use each area like this:
 - `src/global/index.ts`: export your public helpers and mount shared site-wide modules
 - `src/global/modules/*`: split shared global responsibilities into small modules
 - `src/pages/home/index.ts`: keep page setup thin and focused on that page only
-- `src/generated/wfkit-pages.ts`: generated page slug types used by `definePage`
+- `src/generated/wfkit-pages.ts`: generated page slug types and selector contracts used by `definePage`, `mountPageRootFeature`, and `mountGlobalFeature`
 - `src/features/*`: build reusable behavior around stable `data-wf-*` selectors
 - `build/webflow-vite-plugin.js`: controls how page and global entries become Webflow-ready bundles
 - `docs/index.md`: the default docs hub entry
@@ -136,6 +136,13 @@ definePage("home", (pageRoot) => {
 ```
 
 This keeps selectors, DOM behavior, and reuse in one place. `definePage(...)` is typed from `src/generated/wfkit-pages.ts`, so page slug autocomplete comes from your real Webflow pages after running `{{.RunScript}} pages:types`.
+
+For mount points, the scaffold also generates selector contracts:
+
+- `mountPageRootFeature("home", ...)` uses the typed selector generated for that page root
+- `mountGlobalFeature("siteRoot", ...)` uses a typed global selector contract
+
+This keeps `data-wf-*` conventions centralized instead of scattering raw selector strings across the codebase.
 
 ## Decide where new code belongs
 

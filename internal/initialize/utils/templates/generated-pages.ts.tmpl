@@ -3,6 +3,7 @@ export const wfPages = [
 ] as const
 
 export type WfPage = (typeof wfPages)[number]
+export type WfGlobalSelector = keyof typeof wfGlobalSelectors
 
 export interface WfPageInfo {
   slug: WfPage
@@ -13,3 +14,16 @@ export interface WfPageInfo {
 export const wfPageInfo: Record<WfPage, WfPageInfo> = {
   home: { slug: 'home', title: 'Home' }
 }
+
+export const wfPageSelectors: Record<WfPage, string> = {
+  home: '[data-page="home"]'
+}
+
+export const wfPageRootSelectors: Record<WfPage, string> = {
+  home: '[data-wf-home-root]'
+}
+
+export const wfGlobalSelectors = {
+  siteRoot: '[data-wf-site-root]',
+  docsRoot: '[data-wf-docs-root]'
+} as const

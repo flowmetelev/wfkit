@@ -1,5 +1,11 @@
 import { $, $$, onReady } from '@/utils/dom'
-import type { WfPage } from '@/generated/wfkit-pages'
+import {
+  wfGlobalSelectors,
+  wfPageRootSelectors,
+  wfPageSelectors,
+  type WfGlobalSelector,
+  type WfPage
+} from '@/generated/wfkit-pages'
 
 type FeatureMount<T extends Element = HTMLElement> = (element: T) => void
 type PageMount<T extends Element = HTMLElement> = (pageRoot: T) => void
@@ -73,12 +79,28 @@ export function mountFeature<T extends Element = HTMLElement>(
   })
 }
 
+export function mountGlobalFeature<T extends Element = HTMLElement>(
+  selectorName: WfGlobalSelector,
+  mount: FeatureMount<T>,
+  root: ParentNode = document
+) {
+  mountFeature(String(selectorName), wfGlobalSelectors[selectorName], mount, root)
+}
+
+export function mountPageRootFeature<T extends Element = HTMLElement>(
+  pageName: WfPage,
+  mount: FeatureMount<T>,
+  root: ParentNode = document
+) {
+  mountFeature(`${pageName}-root`, wfPageRootSelectors[pageName], mount, root)
+}
+
 export function definePage<T extends Element = HTMLElement>(
   pageName: WfPage,
   mount: PageMount<T>
 ) {
   onWebflowReady(() => {
-    const pageRoot = $<T>(`[data-page="${pageName}"]`)
+    const pageRoot = $<T>(wfPageSelectors[pageName])
     if (!pageRoot) {
       return
     }

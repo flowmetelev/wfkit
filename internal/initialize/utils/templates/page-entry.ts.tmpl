@@ -1,7 +1,7 @@
-import { definePage, mountFeature } from '@/utils/webflow'
+import { definePage, mountPageRootFeature } from '@/utils/webflow'
 
 definePage('home', pageRoot => {
-  mountFeature('home-root', '[data-wf-home-root]', element => {
+  mountPageRootFeature('home', element => {
     element.setAttribute('data-page-ready', 'true')
   }, pageRoot)
 
