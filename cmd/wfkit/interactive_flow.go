@@ -145,9 +145,9 @@ func (f *interactiveFlow) dispatch() error {
 	case "update":
 		return updateMode(f.cliContext)
 	case "report_bug":
-		return openBugReport(f.cliContext)
+		return newInteractiveSupportFlow(f.cliContext, "report_bug").run()
 	case "request_feature":
-		return openFeatureRequest(f.cliContext)
+		return newInteractiveSupportFlow(f.cliContext, "request_feature").run()
 	default:
 		return nil
 	}
