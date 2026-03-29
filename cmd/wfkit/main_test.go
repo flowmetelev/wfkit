@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"wfkit/internal/config"
+	"wfkit/internal/webflow"
 
 	"github.com/urfave/cli/v2"
 )
@@ -93,5 +94,50 @@ func TestMigrateLoadConfigSupportsInlinePublishBeforeArgsInit(t *testing.T) {
 
 	if got := flow.delivery(); got != "inline" {
 		t.Fatalf("expected inline delivery, got %q", got)
+	}
+}
+
+func TestValidatePublishReadinessRequiresPublishAndCustomCode(t *testing.T) {
+	err := validatePublishReadiness(webflow.PublishPreflight{
+		Permissions: webflow.PublishPermissions{
+			CanPublish:          true,
+			CanManageCustomCode: false,
+		},
+		Domains: webflow.PublishDomains{
+			StagingDomain: webflow.PublishDomain{Name: "demo.webflow.io"},
+		},
+	})
+	if err == nil {
+		t.Fatal("expected publish readiness validation to fail")
+	}
+}
+
+func TestDoctorChecksFromPublishPreflightWarnsWithoutProductionDomains(t *testing.T) {
+	checks := doctorChecksFromPublishPreflight(webflow.PublishPreflight{
+		Permissions: webflow.PublishPermissions{
+			CanPublish:          true,
+			CanManageCustomCode: true,
+			CanDesign:           true,
+		},
+		Domains: webflow.PublishDomains{
+			StagingDomain: webflow.PublishDomain{Name: "demo.webflow.io"},
+		},
+		Credentials:       webflow.PublishCredentials{SecretCount: 0},
+		NumberOfPublishes: 12,
+	})
+
+	foundProduction := false
+	for _, check := range checks {
+		if check.Name != "Production destinations" {
+			continue
+		}
+		foundProduction = true
+		if check.Status != doctorWarn {
+			t.Fatalf("expected production destinations warning, got %s", check.Status)
+		}
+	}
+
+	if !foundProduction {
+		t.Fatal("expected production destinations check to be present")
 	}
 }

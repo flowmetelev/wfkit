@@ -19,12 +19,13 @@ import (
 )
 
 type publishRequest struct {
-	cli     *cli.Context
-	cfg     config.Config
-	args    map[string]interface{}
-	baseURL string
-	pToken  string
-	cookies string
+	cli       *cli.Context
+	cfg       config.Config
+	args      map[string]interface{}
+	baseURL   string
+	pToken    string
+	cookies   string
+	preflight *webflow.PublishPreflight
 }
 
 func newPublishRequest(c *cli.Context, cfg config.Config) *publishRequest {
@@ -79,6 +80,26 @@ func (r *publishRequest) authenticate() error {
 	}
 
 	printPublishTimeline(r.env(), r.delivery(), r.byPage(), r.dryRun(), true, false, false, false)
+
+	if err := r.loadPreflight(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *publishRequest) loadPreflight() error {
+	preflight, err := webflow.GetPublishPreflight(r.cli.Context, r.cfg.AppName, r.pToken, r.cookies)
+	if err != nil {
+		return fmt.Errorf("failed to load Webflow publish readiness: %w", err)
+	}
+
+	r.preflight = &preflight
+	printPublishReadiness(preflight)
+
+	if err := validatePublishReadiness(preflight); err != nil {
+		return err
+	}
+
 	return nil
 }
 

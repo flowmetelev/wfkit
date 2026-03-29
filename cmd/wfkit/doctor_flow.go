@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"wfkit/internal/config"
+	"wfkit/internal/webflow"
 )
 
 type doctorFlow struct {
@@ -66,10 +67,40 @@ func (f *doctorFlow) collectChecks() {
 			Status:   doctorWarn,
 			Message:  "skipped by flag",
 		})
+		f.checks = append(f.checks, doctorCheck{
+			Category: "publish",
+			Name:     "Publish readiness",
+			Status:   doctorWarn,
+			Message:  "skipped because auth checks are disabled",
+		})
 		return
 	}
 
-	f.checks = append(f.checks, checkWebflowAuth(f.context, f.config))
+	authCheck, token, cookies := f.checkWebflowSession()
+	f.checks = append(f.checks, authCheck)
+
+	if authCheck.Status != doctorPass {
+		f.checks = append(f.checks, doctorCheck{
+			Category: "publish",
+			Name:     "Publish readiness",
+			Status:   doctorWarn,
+			Message:  "skipped because Webflow authentication is not ready",
+		})
+		return
+	}
+
+	preflight, err := webflow.GetPublishPreflight(f.context, f.config.AppName, token, cookies)
+	if err != nil {
+		f.checks = append(f.checks, doctorCheck{
+			Category: "publish",
+			Name:     "Publish readiness",
+			Status:   doctorWarn,
+			Message:  err.Error(),
+		})
+		return
+	}
+
+	f.checks = append(f.checks, doctorChecksFromPublishPreflight(preflight)...)
 }
 
 func (f *doctorFlow) hasBlockingIssues() bool {
@@ -80,4 +111,23 @@ func (f *doctorFlow) hasBlockingIssues() bool {
 	}
 
 	return false
+}
+
+func (f *doctorFlow) checkWebflowSession() (doctorCheck, string, string) {
+	designURL := f.config.EffectiveDesignURL()
+	if designURL == "" {
+		return doctorCheck{Category: "runtime", Name: "Webflow auth", Status: doctorFail, Message: "cannot build design URL without appName"}, "", ""
+	}
+
+	token, cookies, err := webflow.GetCsrfTokenAndCookies(f.context, designURL)
+	if err != nil {
+		return doctorCheck{Category: "runtime", Name: "Webflow auth", Status: doctorWarn, Message: err.Error()}, "", ""
+	}
+
+	return doctorCheck{
+		Category: "runtime",
+		Name:     "Webflow auth",
+		Status:   doctorPass,
+		Message:  fmt.Sprintf("authenticated against %s", designURL),
+	}, token, cookies
 }
