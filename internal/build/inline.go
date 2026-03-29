@@ -109,9 +109,7 @@ func inlineViteConfigSource(entryPath, outDir string) (string, error) {
 		return "", fmt.Errorf("marshal out dir: %w", err)
 	}
 
-	return fmt.Sprintf(`import { defineConfig } from "vite"
-
-export default defineConfig({
+	return fmt.Sprintf(`export default {
   build: {
     outDir: %s,
     emptyOutDir: true,
@@ -126,6 +124,6 @@ export default defineConfig({
       }
     }
   }
-})
+}
 `, outDirJSON, entryJSON), nil
 }
