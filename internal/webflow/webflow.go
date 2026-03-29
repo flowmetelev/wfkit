@@ -306,11 +306,20 @@ func UpdateGlobalCode(ctx context.Context, siteName, token, cookies string, head
 	return nil
 }
 
-// PublishSite публикует сайт.
+// PublishSite публикует сайт в staging по умолчанию.
 func PublishSite(ctx context.Context, siteName, token, cookies string) error {
+	return PublishSiteTargets(ctx, siteName, token, cookies, []string{fmt.Sprintf("%s.webflow.io", siteName)})
+}
+
+// PublishSiteTargets публикует сайт на указанные домены.
+func PublishSiteTargets(ctx context.Context, siteName, token, cookies string, publishTargets []string) error {
+	if len(publishTargets) == 0 {
+		return fmt.Errorf("failed to publish site: no publish targets selected")
+	}
+
 	url := fmt.Sprintf(baseApiUrl, siteName, siteName+"/queue-publish")
 	body := map[string]interface{}{
-		"publishTarget": []string{fmt.Sprintf("%s.webflow.io", siteName)},
+		"publishTarget": publishTargets,
 		"meta":          map[string]string{"designerMode": "design"},
 	}
 	resp, err := doPost(ctx, url, cookies, token, body)
@@ -337,6 +346,121 @@ func GetPagesListFromDom(ctx context.Context, siteName, token, cookies string) (
 		return nil, fmt.Errorf("failed to decode pages list response: %w", err)
 	}
 	return data.Pages, nil
+}
+
+// CreateStaticPage создает новую статическую страницу сайта.
+func CreateStaticPage(ctx context.Context, siteName, baseURL, token, cookies, title, slug string) (Page, error) {
+	url := fmt.Sprintf(baseApiUrl, siteName, siteName+"/pages")
+	body := map[string]string{
+		"title": title,
+		"slug":  slug,
+	}
+
+	resp, err := doPost(ctx, url, cookies, token, body)
+	if err != nil {
+		if isIncompatibleClientVersionError(err) {
+			InvalidateAuthCache(baseURL)
+			refreshedToken, refreshedCookies, refreshErr := GetCsrfTokenAndCookies(ctx, baseURL)
+			if refreshErr == nil {
+				resp, err = doPost(ctx, url, refreshedCookies, refreshedToken, body)
+				if err == nil {
+					token = refreshedToken
+					cookies = refreshedCookies
+				}
+			}
+		}
+		if err != nil {
+			return Page{}, fmt.Errorf("failed to create page %s: %w", title, err)
+		}
+	}
+	defer resp.Body.Close()
+
+	var payload struct {
+		Page Page `json:"page"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		return Page{}, fmt.Errorf("failed to decode create page response: %w", err)
+	}
+	if payload.Page.ID == "" {
+		return Page{}, fmt.Errorf("failed to create page %s: missing page id in response", title)
+	}
+
+	if err := InitializePageSecrets(ctx, baseURL, token, cookies, payload.Page.ID, "", ""); err != nil {
+		return Page{}, fmt.Errorf("failed to initialize page %s secrets: %w", title, err)
+	}
+
+	return payload.Page, nil
+}
+
+// InitializePageSecrets initializes page-level custom code storage for a page.
+func InitializePageSecrets(ctx context.Context, baseURL, token, cookies, pageID, head, postBody string) error {
+	url := fmt.Sprintf("%s/api/pages/%s/secrets", strings.TrimRight(baseURL, "/"), pageID)
+	body := map[string]string{
+		"head":     head,
+		"postBody": postBody,
+	}
+
+	resp, err := doPut(ctx, url, cookies, token, body)
+	if err != nil {
+		if isIncompatibleClientVersionError(err) {
+			InvalidateAuthCache(baseURL)
+			refreshedToken, refreshedCookies, refreshErr := GetCsrfTokenAndCookies(ctx, baseURL)
+			if refreshErr == nil {
+				resp, err = doPut(ctx, url, refreshedCookies, refreshedToken, body)
+			}
+		}
+		if err != nil {
+			return fmt.Errorf("failed to initialize page secrets for %s: %w", pageID, err)
+		}
+	}
+	resp.Body.Close()
+	return nil
+}
+
+// DeletePage removes a static page from the site.
+func DeletePage(ctx context.Context, baseURL, token, cookies, pageID string) error {
+	url := fmt.Sprintf(pageApiUrl, baseURL, pageID)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create DELETE request: %w", err)
+	}
+	setupRequestHeaders(req, cookies)
+	req.Header.Set("x-xsrf-token", token)
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to execute DELETE request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		body, _ := io.ReadAll(resp.Body)
+		apiErr := parseAPIError(http.MethodDelete, resp.StatusCode, body)
+		if isIncompatibleClientVersionError(apiErr) {
+			InvalidateAuthCache(baseURL)
+			refreshedToken, refreshedCookies, refreshErr := GetCsrfTokenAndCookies(ctx, baseURL)
+			if refreshErr == nil {
+				req, retryReqErr := http.NewRequestWithContext(ctx, http.MethodDelete, url, nil)
+				if retryReqErr == nil {
+					setupRequestHeaders(req, refreshedCookies)
+					req.Header.Set("x-xsrf-token", refreshedToken)
+					resp, err := httpClient.Do(req)
+					if err == nil {
+						defer resp.Body.Close()
+						if resp.StatusCode < 400 {
+							return nil
+						}
+						body, _ = io.ReadAll(resp.Body)
+						apiErr = parseAPIError(http.MethodDelete, resp.StatusCode, body)
+					}
+				}
+			}
+		}
+		return fmt.Errorf("failed to delete page %s: %w", pageID, apiErr)
+	}
+
+	return nil
 }
 
 // PutFullPageObject обновляет страницу сайта.

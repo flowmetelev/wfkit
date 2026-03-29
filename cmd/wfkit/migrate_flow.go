@@ -25,6 +25,7 @@ type migrateFlow struct {
 	globalCode webflow.GlobalCode
 	plan       publish.MigrationPlan
 	result     publish.MigrationPublishResult
+	preflight  *webflow.PublishPreflight
 }
 
 func newMigrateFlow(c *cli.Context) *migrateFlow {
@@ -43,6 +44,12 @@ func (f *migrateFlow) run() error {
 		return err
 	}
 	printMigrateTimeline(f.dryRun(), f.shouldPublish(), f.shouldPushAssets(), f.shouldPublish(), true, false, false, false, false, false, false)
+
+	if f.shouldPublish() {
+		if err := f.loadPreflight(); err != nil {
+			return err
+		}
+	}
 
 	if err := f.loadPages(); err != nil {
 		return err
@@ -120,6 +127,7 @@ func (f *migrateFlow) loadConfig() error {
 	f.args = map[string]interface{}{
 		"env":           "prod",
 		"delivery":      deliveryMode,
+		"target":        resolvePublishTargetFlag(f.cliContext),
 		"asset-branch":  resolveAssetBranchFlag(f.cliContext, cfg.AssetBranch),
 		"build-dir":     resolveStringFlag(f.cliContext, "build-dir", cfg.BuildDir),
 		"custom-commit": f.cliContext.String("custom-commit"),
@@ -146,6 +154,23 @@ func (f *migrateFlow) authenticate() error {
 		f.cookies = cookies
 		return nil
 	})
+}
+
+func (f *migrateFlow) loadPreflight() error {
+	preflight, err := webflow.GetPublishPreflight(f.cliContext.Context, f.config.AppName, f.token, f.cookies)
+	if err != nil {
+		return fmt.Errorf("failed to load Webflow publish readiness: %w", err)
+	}
+
+	f.preflight = &preflight
+	f.args["publish-targets"] = resolvePublishTargets(preflight, f.target())
+	printPublishReadinessForTarget(preflight, f.target())
+
+	if err := validatePublishReadiness(preflight, f.target()); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (f *migrateFlow) loadPages() error {
@@ -256,6 +281,11 @@ func (f *migrateFlow) publish() error {
 
 	f.result = result
 	return nil
+}
+
+func (f *migrateFlow) target() string {
+	target, _ := f.args["target"].(string)
+	return target
 }
 
 func (f *migrateFlow) printSuccess() {

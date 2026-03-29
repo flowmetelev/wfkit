@@ -10,6 +10,7 @@ import (
 func CreateDirectories(pagesDir string) error {
 	dirs := []string{
 		"src",
+		filepath.Join("src", "generated"),
 		filepath.Join("src", "features"),
 		filepath.Join("src", "global"),
 		filepath.Join("src", "global", "modules"),

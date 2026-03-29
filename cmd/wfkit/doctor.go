@@ -82,12 +82,14 @@ func doctorDashboardCards(checks []doctorCheck) []utils.DashboardCard {
 		{key: "project", title: "Project"},
 		{key: "tooling", title: "Tooling"},
 		{key: "runtime", title: "Runtime"},
+		{key: "publish", title: "Publish"},
 	}
 
 	stats := map[string]*aggregate{
 		"project": {},
 		"tooling": {},
 		"runtime": {},
+		"publish": {},
 	}
 
 	for _, check := range checks {

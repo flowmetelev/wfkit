@@ -11,8 +11,8 @@ func printDocsTimeline(authed, planned, applied bool) {
 	utils.PrintTimeline(
 		"Docs Timeline",
 		utils.TimelineStep{Label: "Authenticate", Status: timelineStatus(authed, false), Details: timelineDetails(authed, "Webflow session ready")},
-		utils.TimelineStep{Label: "Plan docs hub", Status: timelineStatus(planned, false), Details: timelineDetails(planned, "markdown rendered and target page resolved")},
-		utils.TimelineStep{Label: "Apply docs hub", Status: timelineStatus(applied, false), Details: timelineDetails(applied, "managed docs block updated")},
+		utils.TimelineStep{Label: "Plan docs hub", Status: timelineStatus(planned, false), Details: timelineDetails(planned, "markdown rendered and target page prepared")},
+		utils.TimelineStep{Label: "Apply docs hub", Status: timelineStatus(applied, false), Details: timelineDetails(applied, "page created or docs block updated")},
 	)
 }
 
@@ -29,6 +29,7 @@ func printDocsPlan(plan publish.DocsHubPlan) {
 func printDocsResult(result publish.DocsHubResult) {
 	utils.PrintSection("Docs Result")
 	utils.PrintSummary(
+		utils.SummaryMetric{Label: "Created", Value: map[bool]string{true: "yes", false: "no"}[result.Created], Tone: "info"},
 		utils.SummaryMetric{Label: "Updated", Value: map[bool]string{true: "yes", false: "no"}[result.Updated], Tone: "success"},
 		utils.SummaryMetric{Label: "Published", Value: map[bool]string{true: "yes", false: "no"}[result.Published], Tone: "info"},
 	)
@@ -37,6 +38,8 @@ func printDocsResult(result publish.DocsHubResult) {
 
 func docsStatus(action string) string {
 	switch action {
+	case "create":
+		return "CREATE"
 	case "update":
 		return "UPDATE"
 	case "up_to_date":

@@ -5,6 +5,7 @@ import "github.com/urfave/cli/v2"
 func buildCommands() []*cli.Command {
 	return []*cli.Command{
 		buildInitCommand(),
+		buildPagesCommand(),
 		buildDocsCommand(),
 		buildMigrateCommand(),
 		buildPublishCommand(),
@@ -13,6 +14,61 @@ func buildCommands() []*cli.Command {
 		buildFeatureRequestCommand(),
 		buildDoctorCommand(),
 		buildUpdateCommand(),
+	}
+}
+
+func buildPagesCommand() *cli.Command {
+	return &cli.Command{
+		Name:  "pages",
+		Usage: "Inspect, create, and type Webflow pages",
+		Subcommands: []*cli.Command{
+			{
+				Name:   "list",
+				Usage:  "List static Webflow pages for the current site",
+				Flags:  []cli.Flag{&cli.BoolFlag{Name: "json", Usage: "Print pages as JSON"}},
+				Action: pagesListMode,
+			},
+			{
+				Name:  "create",
+				Usage: "Create a new static Webflow page",
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "name", Usage: "Page title to create"},
+					&cli.StringFlag{Name: "slug", Usage: "Page slug (defaults to a slugified title)"},
+					&cli.BoolFlag{Name: "json", Usage: "Print the created page as JSON"},
+					&cli.BoolFlag{Name: "types", Value: true, Usage: "Regenerate local page types after creating the page"},
+					&cli.StringFlag{Name: "output", Value: "src/generated/wfkit-pages.ts", Usage: "Output path for generated page types when --types is enabled"},
+				},
+				Action: pagesCreateMode,
+			},
+			{
+				Name:  "types",
+				Usage: "Generate typed page names from the current Webflow site",
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "output", Value: "src/generated/wfkit-pages.ts", Usage: "Output path for generated page types"},
+				},
+				Action: pagesTypesMode,
+			},
+			{
+				Name:  "inspect",
+				Usage: "Inspect one Webflow page by slug or page id",
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "slug", Usage: "Page slug to inspect"},
+					&cli.StringFlag{Name: "id", Usage: "Page id to inspect"},
+					&cli.BoolFlag{Name: "json", Usage: "Print the page as JSON"},
+				},
+				Action: pagesInspectMode,
+			},
+			{
+				Name:  "delete",
+				Usage: "Delete one Webflow page by slug or page id",
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "slug", Usage: "Page slug to delete"},
+					&cli.StringFlag{Name: "id", Usage: "Page id to delete"},
+					&cli.BoolFlag{Name: "yes", Usage: "Delete without an extra safety prompt"},
+				},
+				Action: pagesDeleteMode,
+			},
+		},
 	}
 }
 
@@ -61,6 +117,7 @@ func buildMigrateCommand() *cli.Command {
 			&cli.BoolFlag{Name: "publish", Usage: "After writing local files, build assets, push the artifact branch, and update Webflow"},
 			&cli.StringFlag{Name: "custom-commit", Value: "Migrate Webflow page code via wfkit", Usage: "Custom commit message"},
 			&cli.StringFlag{Name: "delivery", Value: "cdn", Usage: "Delivery mode for --publish: cdn or inline"},
+			&cli.StringFlag{Name: "target", Value: "staging", Usage: "Webflow publish targets for --publish: staging, production, or all"},
 			&cli.StringFlag{Name: "asset-branch", Value: "wfkit-dist", Usage: "Git branch used for published build artifacts and jsDelivr URLs"},
 			&cli.StringFlag{Name: "branch", Hidden: true, Usage: "Deprecated alias for --asset-branch"},
 			&cli.StringFlag{Name: "build-dir", Value: "dist/assets", Usage: "Build directory"},
@@ -83,6 +140,7 @@ func buildPublishCommand() *cli.Command {
 			&cli.StringFlag{Name: "dev-host", Value: "localhost", Usage: "Local dev server host (dev mode)"},
 			&cli.StringFlag{Name: "custom-commit", Value: "Auto publish from wfkit tool", Usage: "Custom commit message"},
 			&cli.StringFlag{Name: "delivery", Value: "cdn", Usage: "Production delivery mode: cdn or inline"},
+			&cli.StringFlag{Name: "target", Value: "staging", Usage: "Webflow publish targets: staging, production, or all"},
 			&cli.StringFlag{Name: "asset-branch", Value: "wfkit-dist", Usage: "Git branch used for published build artifacts and jsDelivr URLs"},
 			&cli.StringFlag{Name: "branch", Hidden: true, Usage: "Deprecated alias for --asset-branch"},
 			&cli.StringFlag{Name: "build-dir", Value: "dist/assets", Usage: "Build directory"},

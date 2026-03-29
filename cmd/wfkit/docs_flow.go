@@ -157,6 +157,7 @@ func (f *docsFlow) printSuccess() {
 		"Markdown documentation has been published to the Webflow docs page.",
 		[]utils.SummaryMetric{
 			{Label: "Page", Value: f.options.PageSlug, Tone: "success"},
+			{Label: "Created", Value: map[bool]string{true: "yes", false: "no"}[f.result.Created], Tone: "info"},
 			{Label: "Published", Value: map[bool]string{true: "yes", false: "no"}[f.result.Published], Tone: "info"},
 		},
 		"git status",

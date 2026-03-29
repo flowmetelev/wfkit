@@ -64,6 +64,8 @@ func (f *interactiveFlow) dispatch() error {
 		return initMode(f.cliContext)
 	case "docs":
 		return docsMode(f.cliContext)
+	case "pages":
+		return newInteractivePagesFlow(f.cliContext).run()
 	case "migrate":
 		return migrateMode(f.cliContext)
 	case "publish_prod":
@@ -115,6 +117,7 @@ func interactiveActionOptions() []huh.Option[string] {
 	return []huh.Option[string]{
 		huh.NewOption("Initialize a project", "init"),
 		huh.NewOption("Publish docs", "docs"),
+		huh.NewOption("Manage pages", "pages"),
 		huh.NewOption("Migrate page code", "migrate"),
 		huh.NewOption("Publish code to Webflow (prod)", "publish_prod"),
 		huh.NewOption("Start dev proxy", "proxy_dev"),
