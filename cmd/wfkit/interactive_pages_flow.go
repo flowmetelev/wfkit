@@ -38,7 +38,7 @@ func (f *interactivePagesFlow) run() error {
 		}
 		utils.ClearScreen()
 		if f.action == "back" {
-			return interactiveMode(f.parent)
+			return nil
 		}
 		if err := f.dispatch(); err != nil {
 			return err

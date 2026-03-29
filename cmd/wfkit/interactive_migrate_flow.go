@@ -73,7 +73,7 @@ func (f *interactiveMigrateFlow) run() error {
 		case "adjust":
 			configured = false
 		case "back":
-			return interactiveMode(f.parent)
+			return nil
 		default:
 			return nil
 		}

@@ -20,14 +20,23 @@ func newInteractiveFlow(c *cli.Context) *interactiveFlow {
 }
 
 func (f *interactiveFlow) run() error {
-	f.printHeader()
+	for {
+		f.printHeader()
 
-	if err := f.selectAction(); err != nil {
-		return err
+		if err := f.selectAction(); err != nil {
+			return err
+		}
+
+		if f.action == "exit" {
+			utils.CPrint("Goodbye!", "cyan")
+			return nil
+		}
+
+		utils.ClearScreen()
+		if err := f.dispatch(); err != nil {
+			return err
+		}
 	}
-
-	utils.ClearScreen()
-	return f.dispatch()
 }
 
 func (f *interactiveFlow) printHeader() {
@@ -82,9 +91,6 @@ func (f *interactiveFlow) dispatch() error {
 		return openBugReport(f.cliContext)
 	case "request_feature":
 		return openFeatureRequest(f.cliContext)
-	case "exit":
-		utils.CPrint("Goodbye!", "cyan")
-		return nil
 	default:
 		return nil
 	}

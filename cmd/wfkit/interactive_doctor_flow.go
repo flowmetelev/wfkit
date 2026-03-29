@@ -48,7 +48,7 @@ func (f *interactiveDoctorFlow) run() error {
 			}
 			configured = true
 		case "back":
-			return interactiveMode(f.parent)
+			return nil
 		default:
 			return nil
 		}
