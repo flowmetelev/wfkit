@@ -65,7 +65,7 @@ func (r *publishRequest) run() error {
 
 func (r *publishRequest) authenticate() error {
 	utils.PrintSection("Publish")
-	utils.PrintKeyValue("Webflow", r.baseURL)
+	utils.PrintKeyValue("Site", r.baseURL)
 	fmt.Println()
 	printPublishTimeline(r.env(), r.delivery(), r.byPage(), r.dryRun(), false, false, false, false)
 
@@ -151,7 +151,7 @@ func (r *publishRequest) runProd() error {
 }
 
 func (r *publishRequest) runProdDryRun(scriptURL string) error {
-	utils.CPrint("Dry run mode: no git push or Webflow update will be performed", "yellow")
+	utils.CPrint("Dry run: no git push or Webflow update will be performed", "yellow")
 	printPublishTimeline("prod", r.delivery(), r.byPage(), true, true, true, false, false)
 
 	if r.byPage() {

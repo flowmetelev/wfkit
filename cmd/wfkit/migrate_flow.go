@@ -72,7 +72,7 @@ func (f *migrateFlow) run() error {
 	}
 
 	if f.dryRun() {
-		utils.CPrint("Dry run mode: no files or Webflow code were changed", "yellow")
+		utils.CPrint("Dry run: no files or Webflow code were changed", "yellow")
 		printMigrateTimeline(true, f.shouldPublish(), f.shouldPushAssets(), f.shouldPublish(), true, true, true, false, false, false, false)
 		return nil
 	}
@@ -139,7 +139,7 @@ func (f *migrateFlow) loadConfig() error {
 
 func (f *migrateFlow) printHeader() {
 	utils.PrintSection("Migrate")
-	utils.PrintKeyValue("Webflow", f.baseURL)
+	utils.PrintKeyValue("Site", f.baseURL)
 	fmt.Println()
 }
 

@@ -10,9 +10,9 @@ import (
 func printDocsTimeline(authed, planned, applied bool) {
 	utils.PrintTimeline(
 		"Docs Timeline",
-		utils.TimelineStep{Label: "Authenticate", Status: timelineStatus(authed, false), Details: timelineDetails(authed, "Webflow session ready")},
-		utils.TimelineStep{Label: "Plan docs hub", Status: timelineStatus(planned, false), Details: timelineDetails(planned, "markdown rendered and target page prepared")},
-		utils.TimelineStep{Label: "Apply docs hub", Status: timelineStatus(applied, false), Details: timelineDetails(applied, "page created or docs block updated")},
+		utils.TimelineStep{Label: "Auth", Status: timelineStatus(authed, false), Details: timelineDetails(authed, "session ready")},
+		utils.TimelineStep{Label: "Plan", Status: timelineStatus(planned, false), Details: timelineDetails(planned, "page prepared")},
+		utils.TimelineStep{Label: "Apply", Status: timelineStatus(applied, false), Details: timelineDetails(applied, "page updated")},
 	)
 }
 

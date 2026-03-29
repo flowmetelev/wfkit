@@ -12,27 +12,27 @@ func printPublishTimeline(env, delivery string, byPage, dryRun, authed, built, p
 		mode = "by-page"
 	}
 
-	buildLabel := "Build assets"
+	buildLabel := "Build"
 	if env == "dev" {
-		buildLabel = "Start dev server"
+		buildLabel = "Dev server"
 	}
 
-	pushLabel := "Push to GitHub"
-	publishLabel := "Update Webflow"
+	pushLabel := "Git"
+	publishLabel := "Webflow"
 	pushSkipped := dryRun || env != "prod" || delivery == "inline"
 	if pushSkipped {
-		pushLabel = "Push to GitHub (skipped)"
+		pushLabel = "Git"
 	}
 	if dryRun {
-		publishLabel = "Update Webflow (skipped)"
+		publishLabel = "Webflow"
 	}
 
 	utils.PrintTimeline("Workflow", []utils.TimelineStep{
 		{Label: "Mode", Status: "READY", Details: fmt.Sprintf("%s %s", env, mode)},
-		{Label: "Authenticate with Webflow", Status: timelineStatus(authed, false), Details: timelineDetails(authed, "session ready")},
-		{Label: buildLabel, Status: timelineStatus(built, false), Details: timelineDetails(built, "assets ready")},
-		{Label: pushLabel, Status: timelineStatus(pushed, pushSkipped), Details: timelineDetails(pushed, "git synced")},
-		{Label: publishLabel, Status: timelineStatus(published, dryRun), Details: timelineDetails(published, "webflow updated")},
+		{Label: "Auth", Status: timelineStatus(authed, false), Details: timelineDetails(authed, "session ready")},
+		{Label: buildLabel, Status: timelineStatus(built, false), Details: timelineDetails(built, publishBuildDetails(env))},
+		{Label: pushLabel, Status: timelineStatus(pushed, pushSkipped), Details: timelineDetails(pushed, "assets synced")},
+		{Label: publishLabel, Status: timelineStatus(published, dryRun), Details: timelineDetails(published, "site updated")},
 	}...)
 }
 
@@ -42,14 +42,21 @@ func printMigrateTimeline(dryRun, willBuild, willPush, willPublish, authed, load
 	publishSkipped := dryRun || !willPublish
 
 	utils.PrintTimeline("Workflow", []utils.TimelineStep{
-		{Label: "Authenticate with Webflow", Status: timelineStatus(authed, false), Details: timelineDetails(authed, "session ready")},
-		{Label: "Load pages", Status: timelineStatus(loadedPages, false), Details: timelineDetails(loadedPages, "page metadata ready")},
-		{Label: "Load global code", Status: timelineStatus(loadedGlobal, false), Details: timelineDetails(loadedGlobal, "global custom code ready")},
-		{Label: "Write migration files", Status: timelineStatus(plannedFiles, dryRun), Details: timelineDetails(plannedFiles, "local files updated")},
-		{Label: "Build assets", Status: timelineStatus(built, buildSkipped), Details: timelineDetails(built, "manifest ready")},
-		{Label: "Push to GitHub", Status: timelineStatus(pushed, pushSkipped), Details: timelineDetails(pushed, "git synced")},
-		{Label: "Update Webflow", Status: timelineStatus(published, publishSkipped), Details: timelineDetails(published, "cdn links published")},
+		{Label: "Auth", Status: timelineStatus(authed, false), Details: timelineDetails(authed, "session ready")},
+		{Label: "Pages", Status: timelineStatus(loadedPages, false), Details: timelineDetails(loadedPages, "loaded")},
+		{Label: "Global", Status: timelineStatus(loadedGlobal, false), Details: timelineDetails(loadedGlobal, "loaded")},
+		{Label: "Files", Status: timelineStatus(plannedFiles, dryRun), Details: timelineDetails(plannedFiles, "written")},
+		{Label: "Build", Status: timelineStatus(built, buildSkipped), Details: timelineDetails(built, "bundles ready")},
+		{Label: "Git", Status: timelineStatus(pushed, pushSkipped), Details: timelineDetails(pushed, "assets synced")},
+		{Label: "Webflow", Status: timelineStatus(published, publishSkipped), Details: timelineDetails(published, "links updated")},
 	}...)
+}
+
+func publishBuildDetails(env string) string {
+	if env == "dev" {
+		return "proxy ready"
+	}
+	return "assets ready"
 }
 
 func timelineStatus(done, skipped bool) string {
