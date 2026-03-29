@@ -107,14 +107,17 @@ func TestPlanPageMigrationUsesSlugPathAndRespectsExistingFiles(t *testing.T) {
 	if len(plan.Pages) != 1 {
 		t.Fatalf("expected one migration plan item, got %d", len(plan.Pages))
 	}
-	if got := filepath.ToSlash(plan.Pages[0].RelativePath); got != filepath.ToSlash(filepath.Join(pagesDir, "pricing", "index.js")) {
+	if got := filepath.ToSlash(plan.Pages[0].RelativePath); got != filepath.ToSlash(filepath.Join(pagesDir, "pricing", "webflow.migrated.ts")) {
 		t.Fatalf("unexpected migration target path: %q", got)
+	}
+	if got := filepath.ToSlash(plan.Pages[0].EntryRelative); got != filepath.ToSlash(filepath.Join(pagesDir, "pricing", "index.ts")) {
+		t.Fatalf("unexpected migration entry path: %q", got)
 	}
 	if plan.Pages[0].Action != "write" {
 		t.Fatalf("expected write action for new file, got %q", plan.Pages[0].Action)
 	}
 
-	existingPath := filepath.Join(pagesDir, "pricing", "index.ts")
+	existingPath := filepath.Join(pagesDir, "pricing", "webflow.migrated.ts")
 	if err := os.MkdirAll(filepath.Dir(existingPath), 0o755); err != nil {
 		t.Fatalf("failed to create test page dir: %v", err)
 	}
@@ -138,20 +141,27 @@ func TestPlanPageMigrationUsesSlugPathAndRespectsExistingFiles(t *testing.T) {
 		t.Fatalf("expected overwrite action with force, got %q", plan.Pages[0].Action)
 	}
 	if filepath.ToSlash(plan.Pages[0].RelativePath) != filepath.ToSlash(existingPath) {
-		t.Fatalf("expected existing TypeScript file to be reused, got %q", plan.Pages[0].RelativePath)
+		t.Fatalf("expected existing migrated file to be reused, got %q", plan.Pages[0].RelativePath)
 	}
 }
 
-func TestBuildMigratedPageModuleWrapsScriptsAsIIFEs(t *testing.T) {
+func TestBuildMigratedPageModuleUsesDefinePageAndWrapsScriptsAsIIFEs(t *testing.T) {
 	module := buildMigratedPageModule(PageMigration{
-		Title: "Home",
-		Slug:  "home",
+		Title:     "Home",
+		Slug:      "home",
+		FolderKey: "home",
 		Scripts: []string{
 			`console.log("first")`,
 			`console.log("second")`,
 		},
 	})
 
+	if !strings.Contains(module, `import { definePage } from '@/utils/webflow'`) {
+		t.Fatalf("expected definePage import, got %s", module)
+	}
+	if !strings.Contains(module, `definePage("home", () => {`) {
+		t.Fatalf("expected definePage wrapper, got %s", module)
+	}
 	if !strings.Contains(module, `// Source slug: home`) {
 		t.Fatalf("expected source slug header, got %s", module)
 	}
@@ -185,6 +195,9 @@ func TestPlanMigrationIncludesGlobalModuleAndImportPath(t *testing.T) {
 	if plan.Global.Action != "write" {
 		t.Fatalf("expected global write action, got %q", plan.Global.Action)
 	}
+	if !strings.HasSuffix(filepath.ToSlash(plan.Global.ModuleRelativePath), filepath.ToSlash(filepath.Join("src", "global", "modules", "webflow.migrated.ts"))) {
+		t.Fatalf("unexpected global module path: %q", plan.Global.ModuleRelativePath)
+	}
 	if plan.Global.ImportPath != "./modules/webflow.migrated" {
 		t.Fatalf("unexpected global import path: %q", plan.Global.ImportPath)
 	}
@@ -217,5 +230,43 @@ func TestEnsureModuleImportAddsImportOnlyOnce(t *testing.T) {
 	}
 	if strings.Count(string(data), `import "./modules/webflow.migrated"`) != 1 {
 		t.Fatalf("expected migrated import to be inserted exactly once, got %s", string(data))
+	}
+}
+
+func TestWriteMigrationFilesCreatesPageEntryAndWiresModuleImport(t *testing.T) {
+	tempDir := t.TempDir()
+	pagesDir := filepath.Join(tempDir, "src", "pages")
+	plan, err := PlanPageMigration([]webflow.Page{
+		{
+			ID:       "page_1",
+			Title:    "Home",
+			Slug:     "home",
+			PostBody: `<script>console.log("home")</script>`,
+		},
+	}, pagesDir, false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if err := WriteMigrationFiles(plan); err != nil {
+		t.Fatalf("failed to write migration files: %v", err)
+	}
+
+	entryPath := filepath.Join(pagesDir, "home", "index.ts")
+	entryData, err := os.ReadFile(entryPath)
+	if err != nil {
+		t.Fatalf("failed to read generated entry: %v", err)
+	}
+	if !strings.Contains(string(entryData), `import "./webflow.migrated"`) {
+		t.Fatalf("expected generated entry to import migrated module, got %s", string(entryData))
+	}
+
+	modulePath := filepath.Join(pagesDir, "home", "webflow.migrated.ts")
+	moduleData, err := os.ReadFile(modulePath)
+	if err != nil {
+		t.Fatalf("failed to read generated migrated module: %v", err)
+	}
+	if !strings.Contains(string(moduleData), `definePage("home", () => {`) {
+		t.Fatalf("expected migrated module to initialize via definePage, got %s", string(moduleData))
 	}
 }

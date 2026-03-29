@@ -53,11 +53,12 @@ func buildDocsCommand() *cli.Command {
 func buildMigrateCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "migrate",
-		Usage: "Migrate inline Webflow page scripts into local page files and publish them via jsDelivr",
+		Usage: "Migrate inline Webflow custom code into local project files",
 		Flags: []cli.Flag{
 			&cli.StringFlag{Name: "pages-dir", Value: "src/pages", Usage: "Directory for generated page entry files"},
 			&cli.BoolFlag{Name: "force", Usage: "Overwrite existing page entry files when they already exist"},
-			&cli.BoolFlag{Name: "dry-run", Usage: "Show what would be migrated without writing files, pushing git, or updating Webflow"},
+			&cli.BoolFlag{Name: "dry-run", Usage: "Show what would be migrated without writing files or updating Webflow"},
+			&cli.BoolFlag{Name: "publish", Usage: "After writing local files, build assets, push the artifact branch, and update Webflow"},
 			&cli.StringFlag{Name: "custom-commit", Value: "Migrate Webflow page code via wfkit", Usage: "Custom commit message"},
 			&cli.StringFlag{Name: "asset-branch", Value: "wfkit-dist", Usage: "Git branch used for published build artifacts and jsDelivr URLs"},
 			&cli.StringFlag{Name: "branch", Hidden: true, Usage: "Deprecated alias for --asset-branch"},

@@ -37,22 +37,22 @@ func (f *migrateFlow) run() error {
 	}
 
 	f.printHeader()
-	printMigrateTimeline(f.dryRun(), false, false, false, false, false, false, false)
+	printMigrateTimeline(f.dryRun(), f.shouldPublish(), false, false, false, false, false, false, false)
 
 	if err := f.authenticate(); err != nil {
 		return err
 	}
-	printMigrateTimeline(f.dryRun(), true, false, false, false, false, false, false)
+	printMigrateTimeline(f.dryRun(), f.shouldPublish(), true, false, false, false, false, false, false)
 
 	if err := f.loadPages(); err != nil {
 		return err
 	}
-	printMigrateTimeline(f.dryRun(), true, true, false, false, false, false, false)
+	printMigrateTimeline(f.dryRun(), f.shouldPublish(), true, true, false, false, false, false, false)
 
 	if err := f.loadGlobalCode(); err != nil {
 		return err
 	}
-	printMigrateTimeline(f.dryRun(), true, true, true, false, false, false, false)
+	printMigrateTimeline(f.dryRun(), f.shouldPublish(), true, true, true, false, false, false, false)
 
 	if err := f.planMigration(); err != nil {
 		return err
@@ -65,25 +65,30 @@ func (f *migrateFlow) run() error {
 	}
 
 	if f.dryRun() {
-		utils.CPrint("Dry run mode: no files, git history, or Webflow pages were changed", "yellow")
-		printMigrateTimeline(true, true, true, true, false, false, false, false)
+		utils.CPrint("Dry run mode: no files or Webflow code were changed", "yellow")
+		printMigrateTimeline(true, f.shouldPublish(), true, true, true, false, false, false, false)
 		return nil
 	}
 
 	if err := f.writeFiles(); err != nil {
 		return err
 	}
-	printMigrateTimeline(false, true, true, true, true, false, false, false)
+	printMigrateTimeline(false, f.shouldPublish(), true, true, true, true, false, false, false)
+
+	if !f.shouldPublish() {
+		f.printSuccess()
+		return nil
+	}
 
 	if err := f.buildAssets(); err != nil {
 		return err
 	}
-	printMigrateTimeline(false, true, true, true, true, true, false, false)
+	printMigrateTimeline(false, true, true, true, true, true, true, false, false)
 
 	if err := f.pushGit(); err != nil {
 		return err
 	}
-	printMigrateTimeline(false, true, true, true, true, true, true, false)
+	printMigrateTimeline(false, true, true, true, true, true, true, true, false)
 
 	if err := f.publish(); err != nil {
 		return err
@@ -98,8 +103,13 @@ func (f *migrateFlow) loadConfig() error {
 	if err != nil {
 		return fmt.Errorf("failed to read config: %w", err)
 	}
-	if err := cfg.ValidatePublish(); err != nil {
-		return err
+	if cfg.AppName == "" {
+		return fmt.Errorf("missing appName configuration in wfkit.json")
+	}
+	if f.shouldPublish() {
+		if err := cfg.ValidatePublish(); err != nil {
+			return err
+		}
 	}
 
 	f.config = cfg
@@ -231,17 +241,33 @@ func (f *migrateFlow) publish() error {
 }
 
 func (f *migrateFlow) printSuccess() {
-	printMigrationPublishResult(f.result)
-	printMigrateTimeline(false, true, true, true, true, true, true, f.result.Published)
+	if f.shouldPublish() {
+		printMigrationPublishResult(f.result)
+		printMigrateTimeline(false, true, true, true, true, true, true, true, f.result.Published)
 
-	notifySuccess(f.args["notify"].(bool), "wfkit migrate completed", "Webflow code migration finished successfully.")
+		notifySuccess(f.args["notify"].(bool), "wfkit migrate completed", "Webflow code migration finished successfully.")
 
+		utils.PrintSuccessScreen(
+			"Migration completed",
+			"Legacy Webflow code has been moved into local files and published via jsDelivr.",
+			[]utils.SummaryMetric{
+				{Label: "Pages updated", Value: fmt.Sprintf("%d", f.result.UpdatedPages), Tone: "success"},
+				{Label: "Published", Value: map[bool]string{true: "yes", false: "no"}[f.result.Published], Tone: "info"},
+			},
+			"git status",
+			"wfkit publish --env prod --dry-run",
+		)
+		return
+	}
+
+	printMigrateTimeline(false, false, true, true, true, true, false, false, false)
+	notifySuccess(f.args["notify"].(bool), "wfkit migrate completed", "Webflow code migration files were written locally.")
 	utils.PrintSuccessScreen(
 		"Migration completed",
-		"Legacy Webflow code has been moved into local files and published via jsDelivr.",
+		"Legacy Webflow code has been moved into local files. Review the diff, then publish when you are ready.",
 		[]utils.SummaryMetric{
-			{Label: "Pages updated", Value: fmt.Sprintf("%d", f.result.UpdatedPages), Tone: "success"},
-			{Label: "Published", Value: map[bool]string{true: "yes", false: "no"}[f.result.Published], Tone: "info"},
+			{Label: "Pages migrated", Value: fmt.Sprintf("%d", countPageMigrations(f.plan)), Tone: "success"},
+			{Label: "Global migrated", Value: map[bool]string{true: "yes", false: "no"}[f.plan.Global.Action == "write" || f.plan.Global.Action == "overwrite"], Tone: "info"},
 		},
 		"git status",
 		"wfkit publish --env prod --dry-run",
@@ -250,4 +276,8 @@ func (f *migrateFlow) printSuccess() {
 
 func (f *migrateFlow) dryRun() bool {
 	return f.cliContext.Bool("dry-run")
+}
+
+func (f *migrateFlow) shouldPublish() bool {
+	return f.cliContext.Bool("publish")
 }

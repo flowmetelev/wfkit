@@ -46,6 +46,9 @@ type PageMigration struct {
 	FolderKey       string
 	RelativePath    string
 	FilePath        string
+	EntryPath       string
+	EntryRelative   string
+	ImportPath      string
 	CurrentPostBody string
 	CleanedPostBody string
 	CurrentSrc      string
@@ -91,9 +94,12 @@ func PlanMigration(globalData webflow.GlobalCode, pages []webflow.Page, pagesDir
 			continue
 		}
 
-		relativePath, filePath, hasExistingFile := resolveMigrationTargetPath(pagesDir, item.FolderKey)
+		relativePath, filePath, hasExistingFile, entryPath, entryRelative, importPath := resolveMigrationTargetPath(pagesDir, item.FolderKey)
 		item.RelativePath = filepath.ToSlash(relativePath)
 		item.FilePath = filePath
+		item.EntryPath = entryPath
+		item.EntryRelative = filepath.ToSlash(entryRelative)
+		item.ImportPath = importPath
 
 		scripts, cleanedPostBody := extractMigratableInlineScripts(page.PostBody)
 		item.Scripts = scripts
@@ -115,10 +121,10 @@ func PlanMigration(globalData webflow.GlobalCode, pages []webflow.Page, pagesDir
 
 		if hasExistingFile {
 			item.Action = "overwrite"
-			item.Message = fmt.Sprintf("Will overwrite %s from %s", item.RelativePath, pageLabel(page))
+			item.Message = fmt.Sprintf("Will overwrite %s and wire it into %s from %s", item.RelativePath, item.EntryRelative, pageLabel(page))
 		} else {
 			item.Action = "write"
-			item.Message = fmt.Sprintf("Will create %s from %s", item.RelativePath, pageLabel(page))
+			item.Message = fmt.Sprintf("Will create %s and wire it into %s from %s", item.RelativePath, item.EntryRelative, pageLabel(page))
 		}
 
 		plan.Pages = append(plan.Pages, item)
@@ -153,6 +159,12 @@ func WriteMigrationFiles(plan MigrationPlan) error {
 		content := buildMigratedPageModule(page)
 		if err := os.WriteFile(page.FilePath, []byte(content), 0o644); err != nil {
 			return fmt.Errorf("failed to write %s: %w", page.RelativePath, err)
+		}
+		if err := ensurePageEntry(page); err != nil {
+			return fmt.Errorf("failed to ensure %s: %w", page.EntryRelative, err)
+		}
+		if err := ensureModuleImport(page.EntryPath, page.ImportPath); err != nil {
+			return fmt.Errorf("failed to wire migrated page module into %s: %w", page.EntryRelative, err)
 		}
 	}
 
@@ -294,7 +306,7 @@ func planGlobalMigration(globalData webflow.GlobalCode, globalEntry string, forc
 		return plan
 	}
 
-	plan.ModulePath = filepath.Join(filepath.Dir(globalEntry), "modules", "webflow.migrated.js")
+	plan.ModulePath = filepath.Join(filepath.Dir(globalEntry), "modules", "webflow.migrated.ts")
 	plan.ModuleRelativePath = displayMigrationPath(plan.ModulePath)
 	plan.ImportPath = moduleImportPath(globalEntry, plan.ModulePath)
 
@@ -382,18 +394,19 @@ func isMigratableInlineScript(attrs, body string) bool {
 	}
 }
 
-func resolveMigrationTargetPath(pagesDir, folderKey string) (string, string, bool) {
+func resolveMigrationTargetPath(pagesDir, folderKey string) (string, string, bool, string, string, string) {
 	relativeBase := filepath.Join(pagesDir, filepath.FromSlash(folderKey))
-	jsPath := filepath.Join(relativeBase, "index.js")
 	tsPath := filepath.Join(relativeBase, "index.ts")
+	jsPath := filepath.Join(relativeBase, "index.js")
+	modulePath := filepath.Join(relativeBase, "webflow.migrated.ts")
 
 	switch {
 	case fileExists(tsPath):
-		return tsPath, tsPath, true
+		return modulePath, modulePath, fileExists(modulePath), tsPath, tsPath, moduleImportPath(tsPath, modulePath)
 	case fileExists(jsPath):
-		return jsPath, jsPath, true
+		return modulePath, modulePath, fileExists(modulePath), jsPath, jsPath, moduleImportPath(jsPath, modulePath)
 	default:
-		return jsPath, jsPath, false
+		return modulePath, modulePath, fileExists(modulePath), tsPath, tsPath, moduleImportPath(tsPath, modulePath)
 	}
 }
 
@@ -407,28 +420,36 @@ func buildMigratedPageModule(page PageMigration) string {
 	}
 
 	var builder strings.Builder
+	builder.WriteString("import { definePage } from '@/utils/webflow'\n\n")
 	builder.WriteString(fmt.Sprintf("// Migrated from Webflow page %q.\n", label))
 	if page.Slug != "" {
 		builder.WriteString(fmt.Sprintf("// Source slug: %s\n", page.Slug))
 	}
 	builder.WriteString("\n")
-
+	builder.WriteString(fmt.Sprintf("definePage(%q, () => {\n", page.FolderKey))
 	for index, script := range page.Scripts {
-		builder.WriteString(fmt.Sprintf("// Inline script %d\n", index+1))
-		builder.WriteString(";(() => {\n")
-		builder.WriteString(strings.TrimSpace(script))
-		builder.WriteString("\n})()\n")
+		builder.WriteString(fmt.Sprintf("  // Inline script %d\n", index+1))
+		builder.WriteString("  ;(() => {\n")
+		for _, line := range strings.Split(strings.TrimSpace(script), "\n") {
+			builder.WriteString("    ")
+			builder.WriteString(line)
+			builder.WriteString("\n")
+		}
+		builder.WriteString("  })()\n")
 		if index < len(page.Scripts)-1 {
 			builder.WriteString("\n")
 		}
 	}
+	builder.WriteString("})\n")
 
 	return builder.String()
 }
 
 func buildMigratedGlobalModule(global GlobalMigration) string {
 	var builder strings.Builder
+	builder.WriteString("import { onWebflowReady } from '@/utils/webflow'\n\n")
 	builder.WriteString("// Migrated from Webflow global custom code.\n\n")
+	builder.WriteString("onWebflowReady(() => {\n")
 
 	sectionCount := 0
 	writeScripts := func(label string, scripts []string) {
@@ -439,12 +460,16 @@ func buildMigratedGlobalModule(global GlobalMigration) string {
 			builder.WriteString("\n")
 		}
 		sectionCount++
-		builder.WriteString(fmt.Sprintf("// %s\n", label))
+		builder.WriteString(fmt.Sprintf("  // %s\n", label))
 		for index, script := range scripts {
-			builder.WriteString(fmt.Sprintf("// Inline script %d\n", index+1))
-			builder.WriteString(";(() => {\n")
-			builder.WriteString(strings.TrimSpace(script))
-			builder.WriteString("\n})()\n")
+			builder.WriteString(fmt.Sprintf("  // Inline script %d\n", index+1))
+			builder.WriteString("  ;(() => {\n")
+			for _, line := range strings.Split(strings.TrimSpace(script), "\n") {
+				builder.WriteString("    ")
+				builder.WriteString(line)
+				builder.WriteString("\n")
+			}
+			builder.WriteString("  })()\n")
 			if index < len(scripts)-1 {
 				builder.WriteString("\n")
 			}
@@ -453,6 +478,7 @@ func buildMigratedGlobalModule(global GlobalMigration) string {
 
 	writeScripts("Migrated from global head", global.HeadScripts)
 	writeScripts("Migrated from global postBody", global.PostBodyScripts)
+	builder.WriteString("})\n")
 	return builder.String()
 }
 
@@ -526,6 +552,18 @@ func ensureModuleImport(entryPath, importPath string) error {
 	}
 
 	return os.WriteFile(entryPath, []byte(updated), 0o644)
+}
+
+func ensurePageEntry(page PageMigration) error {
+	if fileExists(page.EntryPath) {
+		return nil
+	}
+	if err := os.MkdirAll(filepath.Dir(page.EntryPath), 0o755); err != nil {
+		return err
+	}
+
+	content := fmt.Sprintf("// Generated by wfkit migrate for %s.\nimport %q\n", pageLabel(webflow.Page{ID: page.PageID, Title: page.Title, Slug: page.Slug}), page.ImportPath)
+	return os.WriteFile(page.EntryPath, []byte(content), 0o644)
 }
 
 func displayMigrationPath(path string) string {

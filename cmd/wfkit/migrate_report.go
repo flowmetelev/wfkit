@@ -68,3 +68,13 @@ func hasPendingMigrations(plan publish.MigrationPlan) bool {
 	}
 	return false
 }
+
+func countPageMigrations(plan publish.MigrationPlan) int {
+	count := 0
+	for _, page := range plan.Pages {
+		if page.Action == "write" || page.Action == "overwrite" {
+			count++
+		}
+	}
+	return count
+}
