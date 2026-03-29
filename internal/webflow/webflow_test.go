@@ -182,3 +182,159 @@ func TestDeletePageUsesDeleteEndpoint(t *testing.T) {
 		t.Fatalf("expected /api/pages/page-123 path, got %q", requestedPath)
 	}
 }
+
+func TestPutFullPageObjectUsesPutPageEndpoint(t *testing.T) {
+	t.Helper()
+
+	var requestedMethod string
+	var requestedPath string
+	var requestBody Page
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestedMethod = r.Method
+		requestedPath = r.URL.Path
+		if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
+			t.Fatalf("decode body: %v", err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"msg":"ok","code":200}`)
+	}))
+	defer server.Close()
+
+	targetURL, err := url.Parse(server.URL)
+	if err != nil {
+		t.Fatalf("parse server url: %v", err)
+	}
+
+	originalClient := httpClient
+	httpClient = &http.Client{
+		Timeout:   5 * time.Second,
+		Transport: rewriteTransport{target: targetURL, base: server.Client().Transport},
+	}
+	defer func() { httpClient = originalClient }()
+
+	canonicalURL := "https://example.com/docs"
+	page := Page{
+		ID:                "page-123",
+		Title:             "Docs",
+		Slug:              "docs",
+		SEOTitle:          "SEO Docs",
+		SEODescription:    "SEO Description",
+		SearchTitle:       "Search Docs",
+		SearchDescription: "Search Description",
+		CanonicalURL:      &canonicalURL,
+		IncludeInSitemap:  false,
+		SearchExclude:     true,
+	}
+	if err := PutFullPageObject(context.Background(), server.URL, "token", "cookie=value", page); err != nil {
+		t.Fatalf("PutFullPageObject returned error: %v", err)
+	}
+
+	if requestedMethod != http.MethodPut {
+		t.Fatalf("expected PUT method, got %s", requestedMethod)
+	}
+	if requestedPath != "/api/pages/page-123" {
+		t.Fatalf("expected /api/pages/page-123 path, got %q", requestedPath)
+	}
+	if requestBody.SEOTitle != "SEO Docs" || requestBody.SEODescription != "SEO Description" {
+		t.Fatalf("unexpected SEO payload: %#v", requestBody)
+	}
+	if requestBody.CanonicalURL == nil || *requestBody.CanonicalURL != canonicalURL {
+		t.Fatalf("unexpected canonical payload: %#v", requestBody.CanonicalURL)
+	}
+}
+
+func TestGetRawPagesListFromDomReturnsRawPagePayloads(t *testing.T) {
+	t.Helper()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != "/api/sites/wfkit/dom" {
+			t.Fatalf("unexpected request %s %s", r.Method, r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"pages":[{"_id":"page-123","title":"Docs","slug":"docs","includeInSitemap":true,"nested":{"foo":"bar"}}]}`)
+	}))
+	defer server.Close()
+
+	targetURL, err := url.Parse(server.URL)
+	if err != nil {
+		t.Fatalf("parse server url: %v", err)
+	}
+
+	originalClient := httpClient
+	httpClient = &http.Client{
+		Timeout:   5 * time.Second,
+		Transport: rewriteTransport{target: targetURL, base: server.Client().Transport},
+	}
+	defer func() { httpClient = originalClient }()
+
+	pages, err := GetRawPagesListFromDom(context.Background(), "wfkit", "token", "cookie=value")
+	if err != nil {
+		t.Fatalf("GetRawPagesListFromDom returned error: %v", err)
+	}
+	if len(pages) != 1 {
+		t.Fatalf("expected 1 page, got %d", len(pages))
+	}
+	if pages[0]["_id"] != "page-123" || pages[0]["title"] != "Docs" {
+		t.Fatalf("unexpected raw page payload: %#v", pages[0])
+	}
+	nested, ok := pages[0]["nested"].(map[string]interface{})
+	if !ok || nested["foo"] != "bar" {
+		t.Fatalf("unexpected nested payload: %#v", pages[0]["nested"])
+	}
+}
+
+func TestPutRawPageObjectUsesPutPageEndpoint(t *testing.T) {
+	t.Helper()
+
+	var requestedMethod string
+	var requestedPath string
+	var requestBody map[string]interface{}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestedMethod = r.Method
+		requestedPath = r.URL.Path
+		if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
+			t.Fatalf("decode body: %v", err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"msg":"ok","code":200}`)
+	}))
+	defer server.Close()
+
+	targetURL, err := url.Parse(server.URL)
+	if err != nil {
+		t.Fatalf("parse server url: %v", err)
+	}
+
+	originalClient := httpClient
+	httpClient = &http.Client{
+		Timeout:   5 * time.Second,
+		Transport: rewriteTransport{target: targetURL, base: server.Client().Transport},
+	}
+	defer func() { httpClient = originalClient }()
+
+	payload := map[string]interface{}{
+		"_id":               "page-123",
+		"title":             "Docs",
+		"slug":              "docs",
+		"seoTitle":          "SEO Docs",
+		"seoDesc":           "SEO Description",
+		"includeInSitemap":  false,
+		"searchExclude":     true,
+		"searchDescription": "Search Description",
+	}
+	if err := PutRawPageObject(context.Background(), server.URL, "token", "cookie=value", "page-123", "Docs", payload); err != nil {
+		t.Fatalf("PutRawPageObject returned error: %v", err)
+	}
+
+	if requestedMethod != http.MethodPut {
+		t.Fatalf("expected PUT method, got %s", requestedMethod)
+	}
+	if requestedPath != "/api/pages/page-123" {
+		t.Fatalf("expected /api/pages/page-123 path, got %q", requestedPath)
+	}
+	if requestBody["seoTitle"] != "SEO Docs" || requestBody["seoDesc"] != "SEO Description" {
+		t.Fatalf("unexpected raw SEO payload: %#v", requestBody)
+	}
+}

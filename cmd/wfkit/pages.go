@@ -14,6 +14,10 @@ func pagesTypesMode(c *cli.Context) error {
 	return newPagesFlow(c).runTypes()
 }
 
+func pagesUpdateMode(c *cli.Context) error {
+	return newPagesFlow(c).runUpdate()
+}
+
 func pagesInspectMode(c *cli.Context) error {
 	return newPagesFlow(c).runInspect()
 }

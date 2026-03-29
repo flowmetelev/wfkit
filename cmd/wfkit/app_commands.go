@@ -100,6 +100,26 @@ func buildPagesCommand() *cli.Command {
 				Action: pagesTypesMode,
 			},
 			{
+				Name:  "update",
+				Usage: "Update page metadata such as title, slug, and SEO fields",
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "page-slug", Usage: "Existing page slug to update"},
+					&cli.StringFlag{Name: "id", Usage: "Page id to update"},
+					&cli.StringFlag{Name: "title", Usage: "New Webflow page title"},
+					&cli.StringFlag{Name: "slug", Usage: "New page slug"},
+					&cli.StringFlag{Name: "seo-title", Usage: "New SEO title"},
+					&cli.StringFlag{Name: "seo-description", Usage: "New SEO description"},
+					&cli.StringFlag{Name: "search-title", Usage: "New site search title"},
+					&cli.StringFlag{Name: "search-description", Usage: "New site search description"},
+					&cli.StringFlag{Name: "canonical-url", Usage: "New canonical URL"},
+					&cli.BoolFlag{Name: "include-in-sitemap", Usage: "Include the page in the sitemap"},
+					&cli.BoolFlag{Name: "exclude-from-sitemap", Usage: "Exclude the page from the sitemap"},
+					&cli.BoolFlag{Name: "exclude-from-search", Usage: "Exclude the page from Webflow site search"},
+					&cli.BoolFlag{Name: "json", Usage: "Print the updated page as JSON"},
+				},
+				Action: pagesUpdateMode,
+			},
+			{
 				Name:  "inspect",
 				Usage: "Inspect one Webflow page by slug or page id",
 				Flags: []cli.Flag{

@@ -13,14 +13,22 @@ import (
 )
 
 type interactivePagesFlow struct {
-	parent     *cli.Context
-	action     string
-	name       string
-	slug       string
-	output     string
-	jsonOutput bool
-	writeTypes bool
-	confirmed  bool
+	parent            *cli.Context
+	action            string
+	name              string
+	slug              string
+	pageSlug          string
+	output            string
+	jsonOutput        bool
+	writeTypes        bool
+	confirmed         bool
+	seoTitle          string
+	seoDescription    string
+	searchTitle       string
+	searchDescription string
+	canonicalURL      string
+	includeInSitemap  bool
+	excludeFromSearch bool
 }
 
 func newInteractivePagesFlow(parent *cli.Context) *interactivePagesFlow {
@@ -54,6 +62,7 @@ func (f *interactivePagesFlow) selectAction() error {
 				Options(
 					huh.NewOption("List pages", "list"),
 					huh.NewOption("Create page", "create"),
+					huh.NewOption("Edit page metadata", "update"),
 					huh.NewOption("Inspect page", "inspect"),
 					huh.NewOption("Delete page", "delete"),
 					huh.NewOption("Open page", "open"),
@@ -74,6 +83,8 @@ func (f *interactivePagesFlow) dispatch() error {
 			return err
 		}
 		return f.runCreateFlow()
+	case "update":
+		return f.updatePageFromList()
 	case "inspect":
 		return f.inspectPageFromList()
 	case "delete":
@@ -172,6 +183,34 @@ func (f *interactivePagesFlow) collectTypesInput() error {
 	).Run()
 }
 
+func (f *interactivePagesFlow) collectUpdateInput(page webflow.Page) error {
+	f.pageSlug = developerPageSlug(page)
+	f.name = strings.TrimSpace(page.Title)
+	f.slug = developerPageSlug(page)
+	f.seoTitle = strings.TrimSpace(page.SEOTitle)
+	f.seoDescription = strings.TrimSpace(page.SEODescription)
+	f.searchTitle = strings.TrimSpace(page.SearchTitle)
+	f.searchDescription = strings.TrimSpace(page.SearchDescription)
+	f.canonicalURL = derefString(page.CanonicalURL)
+	f.includeInSitemap = page.IncludeInSitemap
+	f.excludeFromSearch = page.SearchExclude
+
+	return huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().Title("Page title").Value(&f.name),
+			huh.NewInput().Title("Page slug").Value(&f.slug),
+			huh.NewInput().Title("SEO title").Value(&f.seoTitle),
+			huh.NewInput().Title("SEO description").Value(&f.seoDescription),
+			huh.NewInput().Title("Search title").Value(&f.searchTitle),
+			huh.NewInput().Title("Search description").Value(&f.searchDescription),
+			huh.NewInput().Title("Canonical URL").Description("Leave empty to clear it.").Value(&f.canonicalURL),
+			huh.NewConfirm().Title("Include in sitemap?").Value(&f.includeInSitemap),
+			huh.NewConfirm().Title("Exclude from search?").Value(&f.excludeFromSearch),
+			huh.NewConfirm().Title("Print JSON output?").Value(&f.jsonOutput),
+		).Title(fmt.Sprintf("Edit %s", pageOptionLabel(page))),
+	).Run()
+}
+
 func (f *interactivePagesFlow) newContext(stringFlags map[string]string, boolFlags map[string]bool) *cli.Context {
 	set := flag.NewFlagSet("wfkit pages", flag.ContinueOnError)
 	_ = set.Bool("json", false, "")
@@ -180,7 +219,16 @@ func (f *interactivePagesFlow) newContext(stringFlags map[string]string, boolFla
 	_ = set.String("output", "", "")
 	_ = set.String("name", "", "")
 	_ = set.String("slug", "", "")
+	_ = set.String("page-slug", "", "")
+	_ = set.String("seo-title", "", "")
+	_ = set.String("seo-description", "", "")
+	_ = set.String("search-title", "", "")
+	_ = set.String("search-description", "", "")
+	_ = set.String("canonical-url", "", "")
 	_ = set.String("id", "", "")
+	_ = set.Bool("include-in-sitemap", false, "")
+	_ = set.Bool("exclude-from-sitemap", false, "")
+	_ = set.Bool("exclude-from-search", false, "")
 
 	ctx := cli.NewContext(f.parent.App, set, f.parent)
 	for name, value := range stringFlags {
@@ -205,6 +253,7 @@ func (f *interactivePagesFlow) browsePages() error {
 				huh.NewSelect[string]().
 					Title(fmt.Sprintf("Page: %s", pageOptionLabel(page))).
 					Options(
+						huh.NewOption("Edit page metadata", "update"),
 						huh.NewOption("Inspect page", "inspect"),
 						huh.NewOption("Open published page", "open"),
 						huh.NewOption("Delete page", "delete"),
@@ -217,6 +266,27 @@ func (f *interactivePagesFlow) browsePages() error {
 		}
 
 		switch action {
+		case "update":
+			if err := f.collectUpdateInput(page); err != nil {
+				return err
+			}
+			if err := pagesUpdateMode(f.newContext(map[string]string{
+				"id":                 page.ID,
+				"title":              f.name,
+				"slug":               f.slug,
+				"seo-title":          f.seoTitle,
+				"seo-description":    f.seoDescription,
+				"search-title":       f.searchTitle,
+				"search-description": f.searchDescription,
+				"canonical-url":      f.canonicalURL,
+			}, map[string]bool{
+				"json":                 f.jsonOutput,
+				"include-in-sitemap":   f.includeInSitemap,
+				"exclude-from-sitemap": !f.includeInSitemap,
+				"exclude-from-search":  f.excludeFromSearch,
+			})); err != nil {
+				return err
+			}
 		case "inspect":
 			if err := pagesInspectMode(f.newContext(map[string]string{"id": page.ID}, nil)); err != nil {
 				return err
@@ -260,6 +330,31 @@ func (f *interactivePagesFlow) inspectPageFromList() error {
 		return err
 	}
 	return pagesInspectMode(f.newContext(map[string]string{"id": page.ID}, map[string]bool{"json": printJSON}))
+}
+
+func (f *interactivePagesFlow) updatePageFromList() error {
+	page, ok, err := f.selectPage("Edit page metadata")
+	if err != nil || !ok {
+		return err
+	}
+	if err := f.collectUpdateInput(page); err != nil {
+		return err
+	}
+	return pagesUpdateMode(f.newContext(map[string]string{
+		"id":                 page.ID,
+		"title":              f.name,
+		"slug":               f.slug,
+		"seo-title":          f.seoTitle,
+		"seo-description":    f.seoDescription,
+		"search-title":       f.searchTitle,
+		"search-description": f.searchDescription,
+		"canonical-url":      f.canonicalURL,
+	}, map[string]bool{
+		"json":                 f.jsonOutput,
+		"include-in-sitemap":   f.includeInSitemap,
+		"exclude-from-sitemap": !f.includeInSitemap,
+		"exclude-from-search":  f.excludeFromSearch,
+	}))
 }
 
 func (f *interactivePagesFlow) deletePageFromList() error {

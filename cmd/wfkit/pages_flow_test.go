@@ -121,6 +121,158 @@ func TestResolveTargetPageSupportsSlugFallbackAndID(t *testing.T) {
 	}
 }
 
+func TestResolveTargetPageUpdateUsesPageSlugSelector(t *testing.T) {
+	app := &cli.App{}
+	set := flag.NewFlagSet("wfkit pages update", flag.ContinueOnError)
+	_ = set.String("page-slug", "", "")
+	_ = set.String("id", "", "")
+	_ = set.String("slug", "", "")
+	if err := set.Parse([]string{"--page-slug", "docs", "--slug", "docs-updated"}); err != nil {
+		t.Fatalf("parse flags: %v", err)
+	}
+
+	flow := newPagesFlow(cli.NewContext(app, set, nil))
+	flow.pages = []webflow.Page{
+		{ID: "page-home", Title: "Home", Slug: ""},
+		{ID: "page-docs", Title: "Docs", Slug: "docs"},
+	}
+
+	page, err := flow.resolveTargetPageUpdate()
+	if err != nil {
+		t.Fatalf("resolveTargetPageUpdate: %v", err)
+	}
+	if page.ID != "page-docs" {
+		t.Fatalf("expected docs page, got %q", page.ID)
+	}
+}
+
+func TestBuildUpdatedPageAppliesMetadataFlags(t *testing.T) {
+	app := &cli.App{}
+	set := flag.NewFlagSet("wfkit pages update", flag.ContinueOnError)
+	_ = set.String("title", "", "")
+	_ = set.String("slug", "", "")
+	_ = set.String("seo-title", "", "")
+	_ = set.String("seo-description", "", "")
+	_ = set.String("search-title", "", "")
+	_ = set.String("search-description", "", "")
+	_ = set.String("canonical-url", "", "")
+	_ = set.Bool("include-in-sitemap", false, "")
+	_ = set.Bool("exclude-from-sitemap", false, "")
+	_ = set.Bool("exclude-from-search", false, "")
+	if err := set.Parse([]string{
+		"--title", "Docs Hub",
+		"--slug", "docs-hub",
+		"--seo-title", "SEO Docs",
+		"--seo-description", "SEO Description",
+		"--search-title", "Search Docs",
+		"--search-description", "Search Description",
+		"--canonical-url", "https://example.com/docs",
+		"--exclude-from-sitemap",
+		"--exclude-from-search",
+	}); err != nil {
+		t.Fatalf("parse flags: %v", err)
+	}
+
+	flow := newPagesFlow(cli.NewContext(app, set, nil))
+	updated := flow.buildUpdatedPage(webflow.Page{
+		Title:             "Docs",
+		Slug:              "docs",
+		IncludeInSitemap:  true,
+		SearchExclude:     false,
+		SEOTitle:          "Old SEO",
+		SEODescription:    "Old Desc",
+		SearchTitle:       "Old Search",
+		SearchDescription: "Old Search Desc",
+	})
+
+	if updated.Title != "Docs Hub" || updated.Slug != "docs-hub" {
+		t.Fatalf("unexpected title/slug update: %#v", updated)
+	}
+	if updated.SEOTitle != "SEO Docs" || updated.SEODescription != "SEO Description" {
+		t.Fatalf("unexpected SEO fields: %#v", updated)
+	}
+	if updated.SearchTitle != "Search Docs" || updated.SearchDescription != "Search Description" {
+		t.Fatalf("unexpected search fields: %#v", updated)
+	}
+	if updated.CanonicalURL == nil || *updated.CanonicalURL != "https://example.com/docs" {
+		t.Fatalf("unexpected canonical URL: %#v", updated.CanonicalURL)
+	}
+	if updated.IncludeInSitemap {
+		t.Fatalf("expected sitemap exclusion")
+	}
+	if !updated.SearchExclude {
+		t.Fatalf("expected search exclusion")
+	}
+}
+
+func TestBuildUpdatedPagePayloadPreservesRawFieldsAndAppliesMetadata(t *testing.T) {
+	flow := &pagesFlow{}
+	canonicalURL := "https://example.com/docs"
+	payload := flow.buildUpdatedPagePayload(webflow.Page{
+		ID:                "page-123",
+		Title:             "Docs Hub",
+		Slug:              "docs-hub",
+		SEOTitle:          "SEO Docs",
+		SEODescription:    "SEO Description",
+		SearchTitle:       "Search Docs",
+		SearchDescription: "Search Description",
+		CanonicalURL:      &canonicalURL,
+		IncludeInSitemap:  false,
+		SearchExclude:     true,
+	}, map[string]interface{}{
+		"_id":              "page-123",
+		"title":            "Docs",
+		"slug":             "docs",
+		"type":             "Static",
+		"site":             "site-1",
+		"includeInSitemap": true,
+		"searchExclude":    false,
+		"nested": map[string]interface{}{
+			"foo": "bar",
+		},
+	})
+
+	if payload["title"] != "Docs Hub" || payload["slug"] != "docs-hub" {
+		t.Fatalf("unexpected updated title/slug payload: %#v", payload)
+	}
+	if payload["seoTitle"] != "SEO Docs" || payload["seoDesc"] != "SEO Description" {
+		t.Fatalf("unexpected SEO payload: %#v", payload)
+	}
+	if payload["type"] != "Static" || payload["site"] != "site-1" {
+		t.Fatalf("expected raw metadata to be preserved: %#v", payload)
+	}
+	nested, ok := payload["nested"].(map[string]interface{})
+	if !ok || nested["foo"] != "bar" {
+		t.Fatalf("expected nested raw metadata to be preserved: %#v", payload["nested"])
+	}
+}
+
+func TestRawPageByIDReturnsClonedPayload(t *testing.T) {
+	flow := &pagesFlow{
+		rawPages: []map[string]interface{}{
+			{
+				"_id":   "page-123",
+				"title": "Docs",
+				"nested": map[string]interface{}{
+					"foo": "bar",
+				},
+			},
+		},
+	}
+
+	page, err := flow.rawPageByID("page-123")
+	if err != nil {
+		t.Fatalf("rawPageByID returned error: %v", err)
+	}
+	nested := page["nested"].(map[string]interface{})
+	nested["foo"] = "baz"
+
+	originalNested := flow.rawPages[0]["nested"].(map[string]interface{})
+	if originalNested["foo"] != "bar" {
+		t.Fatalf("expected raw page payload to be cloned, got %#v", flow.rawPages[0])
+	}
+}
+
 func TestPublishedPageURLUsesSiteRootForHomeAndSlugForOtherPages(t *testing.T) {
 	siteURL := "https://demo.webflow.io/"
 
