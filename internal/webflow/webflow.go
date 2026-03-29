@@ -348,6 +348,75 @@ func GetPagesListFromDom(ctx context.Context, siteName, token, cookies string) (
 	return data.Pages, nil
 }
 
+// CreateStaticPage создает новую статическую страницу сайта.
+func CreateStaticPage(ctx context.Context, siteName, baseURL, token, cookies, title, slug string) (Page, error) {
+	url := fmt.Sprintf(baseApiUrl, siteName, siteName+"/pages")
+	body := map[string]string{
+		"title": title,
+		"slug":  slug,
+	}
+
+	resp, err := doPost(ctx, url, cookies, token, body)
+	if err != nil {
+		if isIncompatibleClientVersionError(err) {
+			InvalidateAuthCache(baseURL)
+			refreshedToken, refreshedCookies, refreshErr := GetCsrfTokenAndCookies(ctx, baseURL)
+			if refreshErr == nil {
+				resp, err = doPost(ctx, url, refreshedCookies, refreshedToken, body)
+				if err == nil {
+					token = refreshedToken
+					cookies = refreshedCookies
+				}
+			}
+		}
+		if err != nil {
+			return Page{}, fmt.Errorf("failed to create page %s: %w", title, err)
+		}
+	}
+	defer resp.Body.Close()
+
+	var payload struct {
+		Page Page `json:"page"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		return Page{}, fmt.Errorf("failed to decode create page response: %w", err)
+	}
+	if payload.Page.ID == "" {
+		return Page{}, fmt.Errorf("failed to create page %s: missing page id in response", title)
+	}
+
+	if err := InitializePageSecrets(ctx, baseURL, token, cookies, payload.Page.ID, "", ""); err != nil {
+		return Page{}, fmt.Errorf("failed to initialize page %s secrets: %w", title, err)
+	}
+
+	return payload.Page, nil
+}
+
+// InitializePageSecrets initializes page-level custom code storage for a page.
+func InitializePageSecrets(ctx context.Context, baseURL, token, cookies, pageID, head, postBody string) error {
+	url := fmt.Sprintf("%s/api/pages/%s/secrets", strings.TrimRight(baseURL, "/"), pageID)
+	body := map[string]string{
+		"head":     head,
+		"postBody": postBody,
+	}
+
+	resp, err := doPut(ctx, url, cookies, token, body)
+	if err != nil {
+		if isIncompatibleClientVersionError(err) {
+			InvalidateAuthCache(baseURL)
+			refreshedToken, refreshedCookies, refreshErr := GetCsrfTokenAndCookies(ctx, baseURL)
+			if refreshErr == nil {
+				resp, err = doPut(ctx, url, refreshedCookies, refreshedToken, body)
+			}
+		}
+		if err != nil {
+			return fmt.Errorf("failed to initialize page secrets for %s: %w", pageID, err)
+		}
+	}
+	resp.Body.Close()
+	return nil
+}
+
 // PutFullPageObject обновляет страницу сайта.
 func PutFullPageObject(ctx context.Context, baseUrl, token, cookies string, page Page) error {
 	url := fmt.Sprintf(pageApiUrl, baseUrl, page.ID)

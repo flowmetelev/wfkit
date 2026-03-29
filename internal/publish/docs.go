@@ -34,6 +34,7 @@ type DocsHubPlan struct {
 	PageID          string
 	PageTitle       string
 	PageSlug        string
+	CreatePage      bool
 	EntryPath       string
 	Selector        string
 	MarkdownTitle   string
@@ -45,6 +46,7 @@ type DocsHubPlan struct {
 
 type DocsHubResult struct {
 	Plan      DocsHubPlan
+	Created   bool
 	Updated   bool
 	Published bool
 }
@@ -80,23 +82,31 @@ func PlanDocsHubSync(pages []webflow.Page, opts DocsHubOptions) (DocsHubPlan, er
 	}
 
 	targetPage, ok := findPageBySlug(pages, pageSlug)
-	if !ok {
-		return DocsHubPlan{}, fmt.Errorf("no Webflow page found for slug %q; create a static page with that slug first", pageSlug)
+	currentPostBody := ""
+	pageID := ""
+	pageTitle := title
+	createPage := !ok
+	action := "create"
+	message := fmt.Sprintf("Will create docs hub page %q (%s) from %s", pageTitle, pageSlug, entryPath)
+	if ok {
+		pageID = targetPage.ID
+		pageTitle = targetPage.Title
+		currentPostBody = targetPage.PostBody
+		action = "update"
+		message = fmt.Sprintf("Will update docs hub page %s from %s", pageLabel(targetPage), entryPath)
 	}
 
-	currentPostBody := targetPage.PostBody
 	nextPostBody := upsertInlineManagedScript(currentPostBody, docsHubScriptID, buildDocsHubBootstrap(title, renderedHTML, selector))
-	action := "update"
-	message := fmt.Sprintf("Will update docs hub page %s from %s", pageLabel(targetPage), entryPath)
-	if currentPostBody == nextPostBody {
+	if ok && currentPostBody == nextPostBody {
 		action = "up_to_date"
 		message = fmt.Sprintf("Docs hub page %s is already up to date", pageLabel(targetPage))
 	}
 
 	return DocsHubPlan{
-		PageID:          targetPage.ID,
-		PageTitle:       targetPage.Title,
-		PageSlug:        targetPage.Slug,
+		PageID:          pageID,
+		PageTitle:       pageTitle,
+		PageSlug:        pageSlug,
+		CreatePage:      createPage,
 		EntryPath:       entryPath,
 		Selector:        selector,
 		MarkdownTitle:   title,
@@ -109,7 +119,7 @@ func PlanDocsHubSync(pages []webflow.Page, opts DocsHubOptions) (DocsHubPlan, er
 
 func ApplyDocsHubSync(ctx context.Context, siteName, baseURL, token, cookies string, plan DocsHubPlan, publishSite bool) (DocsHubResult, error) {
 	result := DocsHubResult{Plan: plan}
-	if plan.Action != "update" {
+	if plan.Action == "up_to_date" {
 		return result, nil
 	}
 
@@ -119,6 +129,18 @@ func ApplyDocsHubSync(ctx context.Context, siteName, baseURL, token, cookies str
 		Slug:     plan.PageSlug,
 		PostBody: plan.NextPostBody,
 	}
+	if plan.CreatePage {
+		createdPage, err := webflow.CreateStaticPage(ctx, siteName, baseURL, token, cookies, plan.PageTitle, plan.PageSlug)
+		if err != nil {
+			return result, fmt.Errorf("failed to create docs hub page %q: %w", plan.PageSlug, err)
+		}
+		page.ID = createdPage.ID
+		page.Title = createdPage.Title
+		result.Plan.PageID = createdPage.ID
+		result.Plan.PageTitle = createdPage.Title
+		result.Created = true
+	}
+
 	if err := webflow.PutFullPageObject(ctx, baseURL, token, cookies, page); err != nil {
 		return result, fmt.Errorf("failed to update docs hub page %s: %w", pageLabel(page), err)
 	}
