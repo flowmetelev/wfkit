@@ -39,6 +39,7 @@ func TestReadConfigPrefersProjectConfigFile(t *testing.T) {
 		"proxyPort": 3001,
 		"branch": "legacy-release",
 		"assetBranch": "cdn-release",
+		"deliveryMode": "inline",
 		"buildDir": "public/assets",
 		"globalEntry": "src/entry.ts",
 		"docsEntry": "docs/handbook.md",
@@ -73,6 +74,9 @@ func TestReadConfigPrefersProjectConfigFile(t *testing.T) {
 	}
 	if cfg.BuildDir != "public/assets" {
 		t.Fatalf("expected build dir public/assets, got %q", cfg.BuildDir)
+	}
+	if cfg.DeliveryMode != "inline" {
+		t.Fatalf("expected delivery mode inline, got %q", cfg.DeliveryMode)
 	}
 	if cfg.GlobalEntry != "src/entry.ts" {
 		t.Fatalf("expected global entry src/entry.ts, got %q", cfg.GlobalEntry)
@@ -127,6 +131,9 @@ func TestReadConfigFallsBackToPackageJSONAndDefaults(t *testing.T) {
 	}
 	if cfg.AssetBranch != defaultAssetBranch {
 		t.Fatalf("expected default asset branch %q, got %q", defaultAssetBranch, cfg.AssetBranch)
+	}
+	if cfg.DeliveryMode != defaultDelivery {
+		t.Fatalf("expected default delivery %q, got %q", defaultDelivery, cfg.DeliveryMode)
 	}
 	if cfg.DevPort != defaultDevPort {
 		t.Fatalf("expected default dev port %d, got %d", defaultDevPort, cfg.DevPort)

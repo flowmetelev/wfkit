@@ -8,7 +8,12 @@ This project expects `wfkit` to be installed locally from `devDependencies`, so 
 
 Update `wfkit.json` with your real Webflow and GitHub settings.
 
-`assetBranch` controls where built files from `dist/assets` are published for jsDelivr. Keep your source code flow in normal feature branches and pull requests.
+`deliveryMode` controls how production code gets back into Webflow:
+
+- `cdn` publishes `dist/assets` to `assetBranch` and uses jsDelivr
+- `inline` writes built module code back into Webflow as managed inline scripts
+
+Keep your source code flow in normal feature branches and pull requests.
 
 If you just ran `wfkit init` without `--skip-install`, dependencies are already installed.
 After cloning the project later on another machine, install them with:

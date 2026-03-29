@@ -13,6 +13,7 @@ const (
 	defaultPkgManager  = "bun"
 	defaultBuildDir    = "dist/assets"
 	defaultAssetBranch = "wfkit-dist"
+	defaultDelivery    = "cdn"
 	defaultDevHost     = "localhost"
 	defaultDevPort     = 5173
 	defaultProxyHost   = "localhost"
@@ -30,6 +31,7 @@ type Config struct {
 	PackageManager string
 	BuildDir       string
 	AssetBranch    string
+	DeliveryMode   string
 	DevHost        string
 	DevPort        int
 	ProxyHost      string
@@ -48,6 +50,7 @@ type projectFileConfig struct {
 	PackageManager string `json:"packageManager"`
 	BuildDir       string `json:"buildDir"`
 	AssetBranch    string `json:"assetBranch"`
+	DeliveryMode   string `json:"deliveryMode"`
 	Branch         string `json:"branch"`
 	DevHost        string `json:"devHost"`
 	DevPort        int    `json:"devPort"`
@@ -70,6 +73,7 @@ type packageJSON struct {
 		PackageManager string `json:"packageManager"`
 		BuildDir       string `json:"buildDir"`
 		AssetBranch    string `json:"assetBranch"`
+		DeliveryMode   string `json:"deliveryMode"`
 		Branch         string `json:"branch"`
 		DevHost        string `json:"devHost"`
 		DevPort        int    `json:"devPort"`
@@ -149,6 +153,7 @@ func defaultConfig() Config {
 		PackageManager: defaultPkgManager,
 		BuildDir:       defaultBuildDir,
 		AssetBranch:    defaultAssetBranch,
+		DeliveryMode:   defaultDelivery,
 		DevHost:        defaultDevHost,
 		DevPort:        defaultDevPort,
 		ProxyHost:      defaultProxyHost,
@@ -221,6 +226,9 @@ func mergePackageConfig(cfg *Config, pkg packageJSON) {
 	if legacy.AssetBranch != "" {
 		cfg.AssetBranch = legacy.AssetBranch
 	}
+	if legacy.DeliveryMode != "" {
+		cfg.DeliveryMode = strings.ToLower(strings.TrimSpace(legacy.DeliveryMode))
+	}
 	if legacy.DevHost != "" {
 		cfg.DevHost = legacy.DevHost
 	}
@@ -269,6 +277,9 @@ func mergeProjectFileConfig(cfg *Config, fileCfg projectFileConfig) {
 	if fileCfg.AssetBranch != "" {
 		cfg.AssetBranch = fileCfg.AssetBranch
 	}
+	if fileCfg.DeliveryMode != "" {
+		cfg.DeliveryMode = strings.ToLower(strings.TrimSpace(fileCfg.DeliveryMode))
+	}
 	if fileCfg.DevHost != "" {
 		cfg.DevHost = fileCfg.DevHost
 	}
@@ -315,6 +326,9 @@ func (c *Config) normalize() {
 	}
 	if c.AssetBranch == "" {
 		c.AssetBranch = defaultAssetBranch
+	}
+	if c.DeliveryMode != "inline" {
+		c.DeliveryMode = defaultDelivery
 	}
 	if c.DevHost == "" {
 		c.DevHost = defaultDevHost

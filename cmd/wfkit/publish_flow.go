@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -42,6 +43,7 @@ func newPublishRequest(c *cli.Context, cfg config.Config) *publishRequest {
 			"dev-port":      devPort,
 			"dev-host":      devHost,
 			"custom-commit": c.String("custom-commit"),
+			"delivery":      resolveDeliveryModeFlag(c, cfg.DeliveryMode),
 			"asset-branch":  resolveAssetBranchFlag(c, cfg.AssetBranch),
 			"build-dir":     resolveStringFlag(c, "build-dir", cfg.BuildDir),
 			"notify":        resolveNotifyFlag(c),
@@ -50,6 +52,9 @@ func newPublishRequest(c *cli.Context, cfg config.Config) *publishRequest {
 }
 
 func (r *publishRequest) run() error {
+	if !r.isProd() && r.delivery() != "cdn" {
+		return fmt.Errorf("delivery mode %q is only supported for production publishes", r.delivery())
+	}
 	if r.isProd() {
 		return r.runProd()
 	}
@@ -60,7 +65,7 @@ func (r *publishRequest) authenticate() error {
 	utils.PrintSection("Publish")
 	utils.PrintKeyValue("Webflow", r.baseURL)
 	fmt.Println()
-	printPublishTimeline(r.env(), r.byPage(), r.dryRun(), false, false, false, false)
+	printPublishTimeline(r.env(), r.delivery(), r.byPage(), r.dryRun(), false, false, false, false)
 
 	if err := utils.RunTask("Authenticate with Webflow", func() error {
 		var authErr error
@@ -73,43 +78,46 @@ func (r *publishRequest) authenticate() error {
 		return err
 	}
 
-	printPublishTimeline(r.env(), r.byPage(), r.dryRun(), true, false, false, false)
+	printPublishTimeline(r.env(), r.delivery(), r.byPage(), r.dryRun(), true, false, false, false)
 	return nil
 }
 
 func (r *publishRequest) runProd() error {
-	if r.cfg.GitHubUser == "" || r.cfg.RepositoryName == "" {
+	if r.delivery() == "cdn" && (r.cfg.GitHubUser == "" || r.cfg.RepositoryName == "") {
 		return fmt.Errorf("missing ghUserName or repositoryName in wfkit.json")
 	}
 
 	utils.CPrint("Building for production...", "cyan")
-	scriptURL, err := build.DoBuild(r.args, r.cfg.GitHubUser, r.cfg.RepositoryName, r.cfg.PackageManager)
+	scriptURL, err := r.buildProdAssets()
 	if err != nil {
-		return fmt.Errorf("build failed: %w", err)
+		return err
 	}
 
-	utils.CPrint(fmt.Sprintf("Build successful, script URL: %s", scriptURL), "green")
-	printPublishTimeline("prod", r.byPage(), r.dryRun(), true, true, false, false)
+	printPublishTimeline("prod", r.delivery(), r.byPage(), r.dryRun(), true, true, false, false)
 
 	if r.dryRun() {
 		return r.runProdDryRun(scriptURL)
 	}
 
-	utils.CPrint("Publishing build artifacts to GitHub...", "cyan")
-	if err := ensureGitHubRepositoryReady(r.cfg.GitHubUser, r.cfg.RepositoryName); err != nil {
-		return err
-	}
+	if r.delivery() == "cdn" {
+		utils.CPrint("Publishing build artifacts to GitHub...", "cyan")
+		if err := ensureGitHubRepositoryReady(r.cfg.GitHubUser, r.cfg.RepositoryName); err != nil {
+			return err
+		}
 
-	gitResult, err := build.PublishBuildArtifacts(build.ArtifactPublishOptions{
-		BuildDir:      r.buildDir(),
-		AssetBranch:   r.assetBranch(),
-		CommitMessage: r.customCommit(),
-	})
-	if err != nil {
-		return fmt.Errorf("GitHub push failed: %w", err)
+		gitResult, err := build.PublishBuildArtifacts(build.ArtifactPublishOptions{
+			BuildDir:      r.buildDir(),
+			AssetBranch:   r.assetBranch(),
+			CommitMessage: r.customCommit(),
+		})
+		if err != nil {
+			return fmt.Errorf("GitHub push failed: %w", err)
+		}
+		printGitPushSummary(gitResult)
+		printPublishTimeline("prod", r.delivery(), r.byPage(), false, true, true, true, false)
+	} else {
+		printPublishTimeline("prod", r.delivery(), r.byPage(), false, true, true, false, false)
 	}
-	printGitPushSummary(gitResult)
-	printPublishTimeline("prod", r.byPage(), false, true, true, true, false)
 
 	utils.CPrint("Publishing to Webflow...", "cyan")
 	if r.byPage() {
@@ -121,7 +129,7 @@ func (r *publishRequest) runProd() error {
 
 func (r *publishRequest) runProdDryRun(scriptURL string) error {
 	utils.CPrint("Dry run mode: no git push or Webflow update will be performed", "yellow")
-	printPublishTimeline("prod", r.byPage(), true, true, true, false, false)
+	printPublishTimeline("prod", r.delivery(), r.byPage(), true, true, true, false, false)
 
 	if r.byPage() {
 		plan, err := publish.PlanByPagePublish(r.cli.Context, r.cfg.AppName, r.cookies, r.pToken, r.cfg.GitHubUser, r.cfg.RepositoryName, r.args)
@@ -132,7 +140,7 @@ func (r *publishRequest) runProdDryRun(scriptURL string) error {
 		return nil
 	}
 
-	plan, err := publish.PreviewGlobalPublish(r.cli.Context, r.cfg.AppName, r.cookies, r.pToken, scriptURL, "prod")
+	plan, err := publish.PreviewGlobalPublish(r.cli.Context, r.cfg.AppName, r.cookies, r.pToken, r.globalProdScript(scriptURL), "prod")
 	if err != nil {
 		return err
 	}
@@ -141,13 +149,13 @@ func (r *publishRequest) runProdDryRun(scriptURL string) error {
 }
 
 func (r *publishRequest) publishProdGlobal(scriptURL string) error {
-	plan, err := publish.PreviewGlobalPublish(r.cli.Context, r.cfg.AppName, r.cookies, r.pToken, scriptURL, "prod")
+	plan, err := publish.PreviewGlobalPublish(r.cli.Context, r.cfg.AppName, r.cookies, r.pToken, r.globalProdScript(scriptURL), "prod")
 	if err != nil {
 		return err
 	}
 	printGlobalPublishPlan(plan)
 
-	updated, oldCode, err := publish.PublishGlobalScript(r.cli.Context, r.cfg.AppName, r.cookies, r.pToken, scriptURL, "prod")
+	updated, oldCode, err := publish.PublishGlobalScript(r.cli.Context, r.cfg.AppName, r.cookies, r.pToken, r.globalProdScript(scriptURL), "prod")
 	if err != nil {
 		return fmt.Errorf("publishing failed: %w", err)
 	}
@@ -158,7 +166,7 @@ func (r *publishRequest) publishProdGlobal(scriptURL string) error {
 		utils.CPrint("Global script is already up to date", "green")
 	}
 
-	printPublishTimeline("prod", false, false, true, true, true, true)
+	printPublishTimeline("prod", r.delivery(), false, false, true, true, r.delivery() == "cdn", true)
 	return nil
 }
 
@@ -175,7 +183,7 @@ func (r *publishRequest) publishProdByPage() error {
 	}
 
 	utils.CPrint(fmt.Sprintf("Page publish summary: %d page(s) updated", result.UpdatedPages), "green")
-	printPublishTimeline("prod", true, false, true, true, true, result.Published)
+	printPublishTimeline("prod", r.delivery(), true, false, true, true, r.delivery() == "cdn", result.Published)
 	return nil
 }
 
@@ -199,7 +207,7 @@ func (r *publishRequest) runDev() error {
 	defer func() {
 		_ = devServer.Stop(5 * time.Second)
 	}()
-	printPublishTimeline("dev", r.byPage(), false, true, true, false, false)
+	printPublishTimeline("dev", r.delivery(), r.byPage(), false, true, true, false, false)
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
@@ -231,7 +239,7 @@ func (r *publishRequest) runDev() error {
 
 func (r *publishRequest) runDevDryRun(scriptURL string) error {
 	utils.CPrint("Dry run mode: no Webflow update will be performed", "yellow")
-	printPublishTimeline("dev", r.byPage(), true, true, false, false, false)
+	printPublishTimeline("dev", r.delivery(), r.byPage(), true, true, false, false, false)
 
 	if r.byPage() {
 		plan, err := publish.PlanByPagePublish(r.cli.Context, r.cfg.AppName, r.cookies, r.pToken, r.cfg.GitHubUser, r.cfg.RepositoryName, r.args)
@@ -242,7 +250,7 @@ func (r *publishRequest) runDevDryRun(scriptURL string) error {
 		return nil
 	}
 
-	plan, err := publish.PreviewGlobalPublish(r.cli.Context, r.cfg.AppName, r.cookies, r.pToken, scriptURL, "dev")
+	plan, err := publish.PreviewGlobalPublish(r.cli.Context, r.cfg.AppName, r.cookies, r.pToken, publish.ManagedScript{Delivery: "cdn", URL: scriptURL}, "dev")
 	if err != nil {
 		return err
 	}
@@ -265,17 +273,17 @@ func (r *publishRequest) publishDev(ctx context.Context, scriptURL string) ([2]s
 
 		utils.CPrint(fmt.Sprintf("Page publish summary: %d page(s) updated", result.UpdatedPages), "green")
 		utils.CPrint("Press Ctrl+C to stop development mode", "yellow")
-		printPublishTimeline("dev", true, false, true, true, false, result.Published)
+		printPublishTimeline("dev", r.delivery(), true, false, true, true, false, result.Published)
 		return [2]string{}, false, nil
 	}
 
-	plan, err := publish.PreviewGlobalPublish(ctx, r.cfg.AppName, r.cookies, r.pToken, scriptURL, "dev")
+	plan, err := publish.PreviewGlobalPublish(ctx, r.cfg.AppName, r.cookies, r.pToken, publish.ManagedScript{Delivery: "cdn", URL: scriptURL}, "dev")
 	if err != nil {
 		return [2]string{}, false, err
 	}
 	printGlobalPublishPlan(plan)
 
-	updated, oldCode, err := publish.PublishGlobalScript(ctx, r.cfg.AppName, r.cookies, r.pToken, scriptURL, "dev")
+	updated, oldCode, err := publish.PublishGlobalScript(ctx, r.cfg.AppName, r.cookies, r.pToken, publish.ManagedScript{Delivery: "cdn", URL: scriptURL}, "dev")
 	if err != nil {
 		return [2]string{}, false, fmt.Errorf("publishing failed: %w", err)
 	}
@@ -283,13 +291,13 @@ func (r *publishRequest) publishDev(ctx context.Context, scriptURL string) ([2]s
 	if updated && len(oldCode) >= 2 {
 		utils.CPrint("Successfully published global development script", "green")
 		utils.CPrint("Press Ctrl+C to stop development and revert changes", "yellow")
-		printPublishTimeline("dev", false, false, true, true, false, true)
+		printPublishTimeline("dev", r.delivery(), false, false, true, true, false, true)
 		return oldCode, true, nil
 	}
 
 	utils.CPrint("Global development script is already up to date", "green")
 	utils.CPrint("Press Ctrl+C to stop development mode", "yellow")
-	printPublishTimeline("dev", false, false, true, true, false, true)
+	printPublishTimeline("dev", r.delivery(), false, false, true, true, false, true)
 	return [2]string{}, false, nil
 }
 
@@ -322,7 +330,7 @@ func (r *publishRequest) printSuccess() {
 		"Production assets are built and Webflow has been updated.",
 		[]utils.SummaryMetric{
 			{Label: "Environment", Value: "prod", Tone: "success"},
-			{Label: "Asset branch", Value: r.assetBranch(), Tone: "info"},
+			{Label: "Delivery", Value: r.delivery(), Tone: "info"},
 			{Label: "Mode", Value: map[bool]string{true: "by-page", false: "global"}[r.byPage()], Tone: "info"},
 		},
 		"git status",
@@ -333,6 +341,7 @@ func (r *publishRequest) printSuccess() {
 func (r *publishRequest) env() string          { return r.args["env"].(string) }
 func (r *publishRequest) byPage() bool         { return r.args["by-page"].(bool) }
 func (r *publishRequest) dryRun() bool         { return r.args["dry-run"].(bool) }
+func (r *publishRequest) delivery() string     { return r.args["delivery"].(string) }
 func (r *publishRequest) scriptURL() string    { return r.args["script-url"].(string) }
 func (r *publishRequest) devPort() int         { return r.args["dev-port"].(int) }
 func (r *publishRequest) devHost() string      { return r.args["dev-host"].(string) }
@@ -341,3 +350,37 @@ func (r *publishRequest) buildDir() string     { return r.args["build-dir"].(str
 func (r *publishRequest) customCommit() string { return r.args["custom-commit"].(string) }
 func (r *publishRequest) notify() bool         { return r.args["notify"].(bool) }
 func (r *publishRequest) isProd() bool         { return r.env() == "prod" }
+
+func (r *publishRequest) buildProdAssets() (string, error) {
+	if r.delivery() == "inline" {
+		if err := build.RunProjectBuild(r.buildDir(), r.cfg.PackageManager); err != nil {
+			return "", fmt.Errorf("build failed: %w", err)
+		}
+		inlineBundles, err := build.BuildInlineBundles(r.buildDir(), r.cfg.PackageManager)
+		if err != nil {
+			return "", fmt.Errorf("inline bundle build failed: %w", err)
+		}
+		if !r.byPage() && strings.TrimSpace(inlineBundles.Global) == "" {
+			return "", fmt.Errorf("inline delivery requires a global bundle, but no global entry was built")
+		}
+		r.args["inline-global"] = inlineBundles.Global
+		r.args["inline-pages"] = inlineBundles.Pages
+		utils.CPrint("Build successful, inline bundles are ready for Webflow", "green")
+		return fmt.Sprintf("inline module (%d page bundle(s))", len(inlineBundles.Pages)), nil
+	}
+
+	scriptURL, err := build.DoBuild(r.args, r.cfg.GitHubUser, r.cfg.RepositoryName, r.cfg.PackageManager)
+	if err != nil {
+		return "", fmt.Errorf("build failed: %w", err)
+	}
+	utils.CPrint(fmt.Sprintf("Build successful, script URL: %s", scriptURL), "green")
+	return scriptURL, nil
+}
+
+func (r *publishRequest) globalProdScript(scriptURL string) publish.ManagedScript {
+	if r.delivery() == "inline" {
+		code, _ := r.args["inline-global"].(string)
+		return publish.ManagedScript{Delivery: "inline", Code: code}
+	}
+	return publish.ManagedScript{Delivery: "cdn", URL: scriptURL}
+}

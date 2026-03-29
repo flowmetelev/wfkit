@@ -17,7 +17,15 @@ import (
 const (
 	globalScriptID = "global-script"
 	pageScriptID   = "page-script"
+	deliveryCDN    = "cdn"
+	deliveryInline = "inline"
 )
+
+type ManagedScript struct {
+	Delivery string
+	URL      string
+	Code     string
+}
 
 type GlobalPublishPlan struct {
 	CurrentSrc string
@@ -31,6 +39,7 @@ type PagePublishPlan struct {
 	Slug            string
 	Folder          string
 	ScriptFile      string
+	ScriptPath      string
 	CurrentPostBody string
 	CurrentSrc      string
 	NextSrc         string
@@ -55,7 +64,7 @@ type ByPagePublishResult struct {
 // - были ли внесены изменения
 // - массив из head и body HTML (для справки)
 // - любую возникшую ошибку
-func PublishGlobalScript(ctx context.Context, siteName, cookies, pToken, scriptUrl, env string) (bool, [2]string, error) {
+func PublishGlobalScript(ctx context.Context, siteName, cookies, pToken string, script ManagedScript, env string) (bool, [2]string, error) {
 	globalData, err := webflow.GetGlobalCode(ctx, siteName, pToken, cookies)
 	if err != nil {
 		return false, [2]string{}, fmt.Errorf("failed to get global code: %w", err)
@@ -64,12 +73,7 @@ func PublishGlobalScript(ctx context.Context, siteName, cookies, pToken, scriptU
 	head := globalData.Meta["head"]
 	postBody := globalData.Meta["postBody"]
 
-	oldSrc := extractScriptSrc(postBody, globalScriptID)
-	if oldSrc == scriptUrl {
-		return false, [2]string{head, postBody}, nil
-	}
-
-	newPostBody := updateScript(postBody, scriptUrl, globalScriptID, env)
+	newPostBody := updateScript(postBody, script, globalScriptID, env)
 	if newPostBody == postBody {
 		return false, [2]string{head, postBody}, nil
 	}
@@ -85,23 +89,24 @@ func PublishGlobalScript(ctx context.Context, siteName, cookies, pToken, scriptU
 	return true, [2]string{head, postBody}, nil
 }
 
-func PreviewGlobalPublish(ctx context.Context, siteName, cookies, pToken, scriptURL, env string) (GlobalPublishPlan, error) {
+func PreviewGlobalPublish(ctx context.Context, siteName, cookies, pToken string, script ManagedScript, env string) (GlobalPublishPlan, error) {
 	globalData, err := webflow.GetGlobalCode(ctx, siteName, pToken, cookies)
 	if err != nil {
 		return GlobalPublishPlan{}, fmt.Errorf("failed to get global code: %w", err)
 	}
 
 	postBody := globalData.Meta["postBody"]
-	currentSrc := extractScriptSrc(postBody, globalScriptID)
-	nextBody := updateScript(postBody, scriptURL, globalScriptID, env)
+	currentSrc := currentManagedScriptLabel(postBody, globalScriptID)
+	nextBody := updateScript(postBody, script, globalScriptID, env)
 	action := "update"
-	if currentSrc == scriptURL || nextBody == postBody {
+	next := managedScriptLabel(script)
+	if currentSrc == next || nextBody == postBody {
 		action = "up_to_date"
 	}
 
 	return GlobalPublishPlan{
 		CurrentSrc: currentSrc,
-		NextSrc:    scriptURL,
+		NextSrc:    next,
 		Action:     action,
 	}, nil
 }
@@ -122,7 +127,11 @@ func PublishByPage(ctx context.Context, siteName, baseUrl, cookies, pToken, ghUs
 	result := ByPagePublishResult{Plan: plan}
 
 	if plan.Global.NextSrc != "" && plan.Global.Action == "update" {
-		updated, _, err := PublishGlobalScript(ctx, siteName, cookies, pToken, plan.Global.NextSrc, env)
+		script, err := resolveGlobalManagedScript(ghUser, repo, args)
+		if err != nil {
+			return result, err
+		}
+		updated, _, err := PublishGlobalScript(ctx, siteName, cookies, pToken, script, env)
 		if err != nil {
 			return result, fmt.Errorf("failed to update global script: %w", err)
 		}
@@ -144,7 +153,12 @@ func PublishByPage(ctx context.Context, siteName, baseUrl, cookies, pToken, ghUs
 			continue
 		}
 
-		newPostBody := updateScript(pagePlan.CurrentPostBody, pagePlan.NextSrc, pageScriptID, env)
+		script, err := resolvePageManagedScript(pagePlan.Folder, pagePlan.ScriptPath, ghUser, repo, args)
+		if err != nil {
+			utils.CPrint(fmt.Sprintf("Failed to resolve page bundle for %s: %v", pagePlan.Title, err), "red")
+			continue
+		}
+		newPostBody := updateScript(pagePlan.CurrentPostBody, script, pageScriptID, env)
 		updatedPage := webflow.Page{
 			ID:       pagePlan.PageID,
 			Title:    pagePlan.Title,
@@ -183,8 +197,6 @@ func PlanByPagePublish(ctx context.Context, siteName, cookies, pToken, ghUser, r
 		return ByPagePlan{}, fmt.Errorf("missing or invalid 'build-dir' argument")
 	}
 
-	assetBranch := resolveAssetBranch(args)
-
 	env, ok := args["env"].(string)
 	if !ok {
 		env = "prod"
@@ -198,8 +210,11 @@ func PlanByPagePublish(ctx context.Context, siteName, cookies, pToken, ghUser, r
 	}
 
 	if globalPath, err := build.ResolveGlobalEntry(buildDir); err == nil && globalPath != "" {
-		globalURL := buildCDNUrl(ghUser, repo, assetBranch, buildDir, globalPath, env, args)
-		globalPlan, err := PreviewGlobalPublish(ctx, siteName, cookies, pToken, globalURL, env)
+		globalScript, err := resolveGlobalManagedScript(ghUser, repo, args)
+		if err != nil {
+			return ByPagePlan{}, err
+		}
+		globalPlan, err := PreviewGlobalPublish(ctx, siteName, cookies, pToken, globalScript, env)
 		if err != nil {
 			return ByPagePlan{}, err
 		}
@@ -227,7 +242,8 @@ func PlanByPagePublish(ctx context.Context, siteName, cookies, pToken, ghUser, r
 		}
 
 		if manifestPath, ok := pageEntries[folderKey]; ok {
-			pagePlan.Folder = filepath.Join(buildDir, filepath.Dir(manifestPath))
+			pagePlan.Folder = folderKey
+			pagePlan.ScriptPath = manifestPath
 			pagePlan.ScriptFile = filepath.Base(manifestPath)
 		} else {
 			pagePlan.Folder = filepath.Join(buildDir, folderKey)
@@ -252,15 +268,19 @@ func PlanByPagePublish(ctx context.Context, siteName, cookies, pToken, ghUser, r
 				continue
 			}
 			pagePlan.ScriptFile = scriptFile
+			pagePlan.ScriptPath = filepath.ToSlash(filepath.Join(folderKey, scriptFile))
 		}
 
 		pagePlan.CurrentPostBody = page.PostBody
-		pagePlan.CurrentSrc = extractScriptSrc(page.PostBody, pageScriptID)
-		pagePath := filepath.ToSlash(filepath.Join(folderKey, pagePlan.ScriptFile))
-		if manifestPath, ok := pageEntries[folderKey]; ok {
-			pagePath = manifestPath
+		pagePlan.CurrentSrc = currentManagedScriptLabel(page.PostBody, pageScriptID)
+		script, err := resolvePageManagedScript(folderKey, pagePlan.ScriptPath, ghUser, repo, args)
+		if err != nil {
+			pagePlan.Action = "error"
+			pagePlan.Message = fmt.Sprintf("Failed to resolve %s bundle: %v", pageLabel(page), err)
+			plan.Pages = append(plan.Pages, pagePlan)
+			continue
 		}
-		pagePlan.NextSrc = buildCDNUrl(ghUser, repo, assetBranch, buildDir, pagePath, env, args)
+		pagePlan.NextSrc = managedScriptLabel(script)
 
 		if page.PostBody == "" {
 			pagePlan.Action = "missing_postbody"
@@ -304,18 +324,17 @@ func extractScriptSrc(html, scriptID string) string {
 }
 
 // updateScript удаляет существующий скрипт с указанным ID и добавляет новый
-func updateScript(html, scriptUrl, scriptID, env string) string {
+func updateScript(html string, script ManagedScript, scriptID, env string) string {
 	// Remove existing script with this ID
 	re := regexp.MustCompile(fmt.Sprintf(`<script[^>]*data-script-id=["']%s["'][^>]*>.*?</script>`, scriptID))
 	cleaned := re.ReplaceAllString(html, "")
 	cleaned = stripViteClientScript(cleaned)
 
-	// Create new script tag
-	scriptTag := fmt.Sprintf(`<script data-script-id="%s" type="module" defer src="%s"></script>`, scriptID, scriptUrl)
+	scriptTag := renderManagedScriptTag(script, scriptID)
 
 	// Add Vite client for development environments
 	if env != "prod" {
-		viteClientUrl := buildViteClientURL(scriptUrl)
+		viteClientUrl := buildViteClientURL(script.URL)
 		scriptTag = fmt.Sprintf(`<script type="module" src="%s"></script>%s`, viteClientUrl, scriptTag)
 	}
 
@@ -420,4 +439,103 @@ func resolveAssetBranch(args map[string]interface{}) string {
 		return branch
 	}
 	return "wfkit-dist"
+}
+
+func resolveDeliveryMode(args map[string]interface{}) string {
+	if mode, ok := args["delivery"].(string); ok && strings.TrimSpace(mode) == deliveryInline {
+		return deliveryInline
+	}
+	return deliveryCDN
+}
+
+func resolveGlobalManagedScript(ghUser, repo string, args map[string]interface{}) (ManagedScript, error) {
+	if resolveDeliveryMode(args) == deliveryInline {
+		code, ok := args["inline-global"].(string)
+		if !ok || strings.TrimSpace(code) == "" {
+			return ManagedScript{}, fmt.Errorf("missing inline global bundle")
+		}
+		return ManagedScript{Delivery: deliveryInline, Code: code}, nil
+	}
+
+	buildDir, ok := args["build-dir"].(string)
+	if !ok || buildDir == "" {
+		return ManagedScript{}, fmt.Errorf("missing or invalid 'build-dir' argument")
+	}
+	env, _ := args["env"].(string)
+	globalPath, err := build.ResolveGlobalEntry(buildDir)
+	if err != nil {
+		return ManagedScript{}, err
+	}
+	return ManagedScript{
+		Delivery: deliveryCDN,
+		URL:      buildCDNUrl(ghUser, repo, resolveAssetBranch(args), buildDir, globalPath, env, args),
+	}, nil
+}
+
+func resolvePageManagedScript(folderKey, scriptPath, ghUser, repo string, args map[string]interface{}) (ManagedScript, error) {
+	if resolveDeliveryMode(args) == deliveryInline {
+		pages, ok := args["inline-pages"].(map[string]string)
+		if !ok {
+			return ManagedScript{}, fmt.Errorf("missing inline page bundles")
+		}
+		code := strings.TrimSpace(pages[folderKey])
+		if code == "" {
+			return ManagedScript{}, fmt.Errorf("missing inline bundle for %s", folderKey)
+		}
+		return ManagedScript{Delivery: deliveryInline, Code: code}, nil
+	}
+
+	buildDir, ok := args["build-dir"].(string)
+	if !ok || buildDir == "" {
+		return ManagedScript{}, fmt.Errorf("missing or invalid 'build-dir' argument")
+	}
+	env, _ := args["env"].(string)
+	return ManagedScript{
+		Delivery: deliveryCDN,
+		URL:      buildCDNUrl(ghUser, repo, resolveAssetBranch(args), buildDir, filepath.ToSlash(scriptPath), env, args),
+	}, nil
+}
+
+func renderManagedScriptTag(script ManagedScript, scriptID string) string {
+	if script.Delivery == deliveryInline {
+		return fmt.Sprintf("<script data-script-id=%q type=\"module\">\n%s\n</script>", scriptID, strings.TrimSpace(script.Code))
+	}
+	return fmt.Sprintf(`<script data-script-id="%s" type="module" defer src="%s"></script>`, scriptID, script.URL)
+}
+
+func managedScriptLabel(script ManagedScript) string {
+	if script.Delivery == deliveryInline {
+		return fmt.Sprintf("inline module (%s)", formatBytes(len(script.Code)))
+	}
+	return script.URL
+}
+
+func currentManagedScriptLabel(html, scriptID string) string {
+	if src := extractScriptSrc(html, scriptID); src != "" {
+		return src
+	}
+	body := extractManagedInlineScriptBody(html, scriptID)
+	if strings.TrimSpace(body) == "" {
+		return ""
+	}
+	return fmt.Sprintf("inline module (%s)", formatBytes(len(strings.TrimSpace(body))))
+}
+
+func extractManagedInlineScriptBody(html, scriptID string) string {
+	re := regexp.MustCompile(fmt.Sprintf(`(?is)<script[^>]*data-script-id=["']%s["'][^>]*>(.*?)</script>`, regexp.QuoteMeta(scriptID)))
+	matches := re.FindStringSubmatch(html)
+	if len(matches) < 2 {
+		return ""
+	}
+	if strings.Contains(strings.ToLower(matches[0]), "src=") {
+		return ""
+	}
+	return strings.TrimSpace(matches[1])
+}
+
+func formatBytes(size int) string {
+	if size < 1024 {
+		return fmt.Sprintf("%d B", size)
+	}
+	return fmt.Sprintf("%.1f kB", float64(size)/1024)
 }

@@ -181,8 +181,6 @@ func PublishMigratedPages(ctx context.Context, siteName, baseURL, cookies, pToke
 		return MigrationPublishResult{}, fmt.Errorf("missing or invalid 'build-dir' argument")
 	}
 
-	assetBranch := resolveAssetBranch(args)
-
 	env, ok := args["env"].(string)
 	if !ok || env == "" {
 		env = "prod"
@@ -195,15 +193,18 @@ func PublishMigratedPages(ctx context.Context, siteName, baseURL, cookies, pToke
 	}
 
 	if globalPath, err := build.ResolveGlobalEntry(buildDir); err == nil && globalPath != "" {
-		globalURL := buildCDNUrl(ghUser, repo, assetBranch, buildDir, globalPath, env, args)
+		globalScript, err := resolveGlobalManagedScript(ghUser, repo, args)
+		if err != nil {
+			return result, err
+		}
 		if shouldWriteGlobalMigration(plan.Global) {
-			newPostBody := updateScript(plan.Global.CleanedPostBody, globalURL, globalScriptID, env)
+			newPostBody := updateScript(plan.Global.CleanedPostBody, globalScript, globalScriptID, env)
 			result.GlobalPlan = GlobalPublishPlan{
-				CurrentSrc: plan.Global.CurrentSrc,
-				NextSrc:    globalURL,
+				CurrentSrc: currentManagedScriptLabel(plan.Global.CurrentPostBody, globalScriptID),
+				NextSrc:    managedScriptLabel(globalScript),
 				Action:     "update",
 			}
-			if plan.Global.CurrentSrc != globalURL || plan.Global.CleanedHead != plan.Global.CurrentHead || newPostBody != plan.Global.CurrentPostBody {
+			if result.GlobalPlan.CurrentSrc != result.GlobalPlan.NextSrc || plan.Global.CleanedHead != plan.Global.CurrentHead || newPostBody != plan.Global.CurrentPostBody {
 				if err := webflow.UpdateGlobalCode(ctx, siteName, pToken, cookies, plan.Global.CleanedHead, newPostBody); err != nil {
 					return result, fmt.Errorf("failed to update migrated global code: %w", err)
 				}
@@ -212,14 +213,14 @@ func PublishMigratedPages(ctx context.Context, siteName, baseURL, cookies, pToke
 				result.GlobalPlan.Action = "up_to_date"
 			}
 		} else {
-			globalPlan, err := PreviewGlobalPublish(ctx, siteName, cookies, pToken, globalURL, env)
+			globalPlan, err := PreviewGlobalPublish(ctx, siteName, cookies, pToken, globalScript, env)
 			if err != nil {
 				return result, fmt.Errorf("failed to preview global migration publish: %w", err)
 			}
 			result.GlobalPlan = globalPlan
 
 			if globalPlan.Action == "update" {
-				updated, _, err := PublishGlobalScript(ctx, siteName, cookies, pToken, globalURL, env)
+				updated, _, err := PublishGlobalScript(ctx, siteName, cookies, pToken, globalScript, env)
 				if err != nil {
 					return result, fmt.Errorf("failed to update global script during migration: %w", err)
 				}
@@ -239,9 +240,12 @@ func PublishMigratedPages(ctx context.Context, siteName, baseURL, cookies, pToke
 			return result, fmt.Errorf("build manifest is missing page entry for %s (%s)", pageLabel(webflow.Page{ID: page.PageID, Title: page.Title, Slug: page.Slug}), page.FolderKey)
 		}
 
-		nextSrc := buildCDNUrl(ghUser, repo, assetBranch, buildDir, manifestPath, env, args)
-		newPostBody := updateScript(page.CleanedPostBody, nextSrc, pageScriptID, env)
-		if page.CurrentSrc == nextSrc && newPostBody == page.CurrentPostBody {
+		nextScript, err := resolvePageManagedScript(page.FolderKey, manifestPath, ghUser, repo, args)
+		if err != nil {
+			return result, fmt.Errorf("resolve migrated page bundle for %s: %w", pageLabel(webflow.Page{ID: page.PageID, Title: page.Title, Slug: page.Slug}), err)
+		}
+		newPostBody := updateScript(page.CleanedPostBody, nextScript, pageScriptID, env)
+		if currentManagedScriptLabel(page.CurrentPostBody, pageScriptID) == managedScriptLabel(nextScript) && newPostBody == page.CurrentPostBody {
 			continue
 		}
 
