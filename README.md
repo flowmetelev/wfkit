@@ -237,6 +237,10 @@ wfkit publish --env prod --dry-run
 
 This still builds the project and checks Webflow, but it won't push, update code, or republish the site.
 
+## License
+
+`wfkit` is licensed under `GPL-3.0-only`. See [LICENSE](/Users/dmitry/Dev/wfkit/LICENSE).
+
 ## Migrate existing Webflow code
 
 If your Webflow project already has inline custom code, you can migrate it into the generated file structure:
